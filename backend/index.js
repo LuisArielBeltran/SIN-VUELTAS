@@ -12,7 +12,7 @@ const pool = new Pool({
 });
 
 // Servir los archivos estáticos del Frontend (La ilusión de PWA)
-app.use(express.static(path.join(__ান্তর, '../frontend')));
+app.use(express.static(path.join(__dirname, '../frontend')));
 
 // Ruta de prueba para verificar que el servidor vive
 app.get('/api/status', (req, res) => {
