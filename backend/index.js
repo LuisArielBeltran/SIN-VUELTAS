@@ -1,5 +1,4 @@
 const express = require('express');
-const path = require('path');
 const { Pool } = require('pg');
 
 const app = express();
@@ -10,10 +9,13 @@ const pool = new Pool({
     ssl: { rejectUnauthorized: false }
 });
 
-app.use(express.static(path.join(__dirname, '../frontend')));
+// Ruta simple de prueba para verificar que el servidor online responde
+app.get('/', (req, res) => {
+    res.send("📍 Servidor de Sin Vueltas funcionando correctamente en Railway!");
+});
 
 app.get('/api/status', (req, res) => {
-    res.json({ mensaje: "Motor de Sin Vueltas funcionando al 100%" });
+    res.json({ mensaje: "Motor de Sin Vueltas activo" });
 });
 
 app.listen(PORT, () => {
