@@ -245,6 +245,66 @@
             box.innerHTML += `<div class="${className}">${text}</div>`;
             box.scrollTop = box.scrollHeight;
         }
+
+
+        // Cargar perfil propio al iniciar la app
+        async function loadProfile() {
+            try {
+                const res = await fetch('/api/users/me', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (data.success) {
+                    document.getElementById('profile-username').textContent = data.user.username;
+                    if (data.user.profile_image) {
+                        document.getElementById('user-avatar').src = data.user.profile_image;
+                    }
+                }
+            } catch (e) {
+                console.error('Error al cargar perfil:', e);
+            }
+        }
+
+        // Manejar cambio de foto de perfil
+        document.getElementById('avatar-input').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            // Validar tamaño (máx ~500KB para mantener la BD ligera)
+            if (file.size > 500 * 1024) {
+                alert('La imagen es demasiado pesada. Elige una menor a 500 KB.');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = async function(event) {
+                const base64Image = event.target.result;
+                
+                // Mostrar vista previa inmediata
+                document.getElementById('user-avatar').src = base64Image;
+
+                // Enviar al backend
+                try {
+                    const res = await fetch('/api/users/me', {
+                        method: 'PUT',
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({ profile_image: base64Image })
+                    });
+                    const data = await res.json();
+                    if (!data.success) throw new Error(data.error);
+                    alert('Foto de perfil actualizada con éxito.');
+                } catch (err) {
+                    console.error('Error al guardar la imagen:', err);
+                    alert('No se pudo actualizar la foto de perfil.');
+                }
+            };
+            reader.readAsDataURL(file);
+        });
+
+        
     </script>
     
     <!-- Registro del Service Worker para PWA -->
