@@ -36,10 +36,19 @@ app.use('/api/radar', radarRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/chat', chatRoutes);
 
-// 2. Configurar canal de WebSockets
+// 2. Ruta de estado de la API (movida para no bloquear el frontend)
+app.get('/api/status', (req, res) => {
+    res.json({ 
+        status: 'online', 
+        project: 'Sin Vueltas API', 
+        version: '1.0.0' 
+    });
+});
+
+// 3. Configurar canal de WebSockets
 configureSockets(io);
 
-// 3. Tarea en segundo plano: Limpieza automática de mensajes con más de 6 meses
+// 4. Tarea en segundo plano: Limpieza automática de mensajes con más de 6 meses
 const runMessageCleanup = async () => {
     try {
         const query = `DELETE FROM messages WHERE created_at < NOW() - INTERVAL '6 months';`;
@@ -55,10 +64,10 @@ const runMessageCleanup = async () => {
 runMessageCleanup();
 setInterval(runMessageCleanup, 24 * 60 * 60 * 1000);
 
-// 4. Servir archivos estáticos del Frontend (PWA) desde la carpeta /public
+// 5. Servir archivos estáticos del Frontend (PWA) desde la carpeta /public
 app.use(express.static(path.join(__dirname, '../public')));
 
-// 5. SPA Fallback: Cualquier ruta que no comience con /api se dirige al index.html del frontend
+// 6. SPA Fallback: Cualquier otra ruta dirige al index.html del frontend
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, '../public', 'index.html'));
 });
