@@ -36,7 +36,7 @@ app.use('/api/radar', radarRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/chat', chatRoutes);
 
-// 2. Ruta de estado de la API (movida para no bloquear el frontend)
+// 2. Ruta de estado de la API
 app.get('/api/status', (req, res) => {
     res.json({ 
         status: 'online', 
@@ -64,10 +64,10 @@ const runMessageCleanup = async () => {
 runMessageCleanup();
 setInterval(runMessageCleanup, 24 * 60 * 60 * 1000);
 
-// 5. Servir archivos estáticos del Frontend (PWA) desde la carpeta /public
+// 5. Servir archivos estáticos del Frontend (PWA)
 app.use(express.static(path.join(__dirname, '../public')));
 
-// 6. SPA Fallback: Cualquier otra ruta dirige al index.html del frontend
+// 6. SPA Fallback
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, '../public', 'index.html'));
 });
