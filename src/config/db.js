@@ -1,12 +1,12 @@
 const { Pool } = require('pg');
 require('dotenv').config();
 
+// Construimos la URL limpia usando tu PGPASSWORD y el proxy público de Railway
+const password = process.env.PGPASSWORD || '';
+const connectionString = `postgresql://postgres:${encodeURIComponent(password)}@yamabiko.proxy.rlwy.net:51338/railway`;
+
 const pool = new Pool({
-    user: process.env.PGUSER || process.env.POSTGRES_USER || 'postgres',
-    password: process.env.PGPASSWORD || process.env.POSTGRES_PASSWORD,
-    host: 'yamabiko.proxy.rlwy.net',
-    database: process.env.PGDATABASE || process.env.POSTGRES_DB || 'railway',
-    port: 51338,
+    connectionString: connectionString,
     ssl: {
         rejectUnauthorized: false // Indispensable para conexiones externas seguras
     }
@@ -17,7 +17,7 @@ pool.query('SELECT NOW()', (err, res) => {
     if (err) {
         console.error('❌ Error crítico al conectar con PostgreSQL:', err.message);
     } else {
-        console.log('✅ Base de datos conectada exitosamente a través del proxy público de Railway.');
+        console.log('✅ Base de datos conectada exitosamente a través del proxy público.');
     }
 });
 
