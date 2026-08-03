@@ -160,6 +160,28 @@
             });
         }
 
+
+
+
+        <!-- Perfil y Avatar -->
+            <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 flex items-center space-x-4">
+                <div class="relative">
+                    <img id="user-avatar" src="https://via.placeholder.com/80" alt="Avatar" class="w-16 h-16 rounded-full object-cover border-2 border-blue-600">
+                    <label for="avatar-input" class="absolute bottom-0 right-0 bg-blue-600 hover:bg-blue-500 text-white p-1 rounded-full cursor-pointer text-xs">
+                        ✏️
+                    </label>
+                    <input type="file" id="avatar-input" accept="image/*" class="hidden">
+                </div>
+                <div>
+                    <h3 id="profile-username" class="text-sm font-semibold text-slate-100">Cargando...</h3>
+                    <p class="text-xs text-slate-400">Toca el lápiz para cambiar tu foto</p>
+                </div>
+            </div>
+
+
+
+        
+
         // Compartir ubicación
         document.getElementById('share-location-btn').addEventListener('click', () => {
             if (!navigator.geolocation) {
