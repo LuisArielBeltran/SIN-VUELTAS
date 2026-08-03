@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sin Vueltas</title>
+    <!-- Tailwind CSS para un diseño limpio y moderno -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Socket.io cliente -->
+    <script src="/socket.io/socket.io.js"></script>
+    <link rel="manifest" href="/manifest.json">
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between">
+
+    <!-- Header -->
+    <header class="p-4 bg-slate-900 border-b border-slate-800 flex justify-between items-center">
+        <h1 class="text-xl font-bold tracking-wider text-blue-500">SIN VUELTAS</h1>
+        <div id="user-info" class="text-sm text-slate-400">No autenticado</div>
+    </header>
+
+    <!-- Contenedor Principal -->
+    <main class="flex-1 p-4 max-w-md mx-auto w-full flex flex-col justify-center">
+
+        <!-- Sección de Autenticación -->
+        <section id="auth-section" class="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-xl">
+            <h2 id="auth-title" class="text-lg font-semibold mb-4 text-center">Iniciar Sesión</h2>
+            
+            <div id="error-msg" class="hidden mb-4 p-3 bg-red-950 text-red-400 text-sm rounded-lg border border-red-900"></div>
+
+            <form id="auth-form" class="space-y-4">
+                <div id="username-field" class="hidden">
+                    <label class="block text-xs uppercase tracking-wider text-slate-400 mb-1">Nombre de usuario</label>
+                    <input type="text" id="username" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-sm focus:outline-none focus:border-blue-600">
+                </div>
+                <div>
+                    <label class="block text-xs uppercase tracking-wider text-slate-400 mb-1">Correo Electrónico</label>
+                    <input type="email" id="email" required class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-sm focus:outline-none focus:border-blue-600">
+                </div>
+                <div>
+                    <label class="block text-xs uppercase tracking-wider text-slate-400 mb-1">Contraseña</label>
+                    <input type="password" id="password" required class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-sm focus:outline-none focus:border-blue-600">
+                </div>
+                <button type="submit" id="submit-btn" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold p-3 rounded-lg transition-colors">Entrar</button>
+            </form>
+
+            <div class="mt-4 text-center">
+                <button id="toggle-auth" class="text-xs text-blue-400 hover:underline">¿No tienes cuenta? Regístrate aquí</button>
+            </div>
+        </section>
+
+        <!-- Sección de la Aplicación (Oculta hasta iniciar sesión) -->
+        <section id="app-section" class="hidden flex-1 flex flex-col space-y-4">
+            
+            <!-- Perfil y Avatar -->
+            <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 flex items-center space-x-4">
+                <div class="relative">
+                    <img id="user-avatar" src="https://via.placeholder.com/80" alt="Avatar" class="w-16 h-16 rounded-full object-cover border-2 border-blue-600">
+                    <label for="avatar-input" class="absolute bottom-0 right-0 bg-blue-600 hover:bg-blue-500 text-white p-1 rounded-full cursor-pointer text-xs">
+                        ✏️
+                    </label>
+                    <input type="file" id="avatar-input" accept="image/*" class="hidden">
+                </div>
+                <div>
+                    <h3 id="profile-username" class="text-sm font-semibold text-slate-100">Cargando...</h3>
+                    <p class="text-xs text-slate-400">Toca el lápiz para cambiar tu foto</p>
+                </div>
+            </div>
+
+            <!-- Radar de Privacidad -->
+            <div class="bg-slate-900 p-4 rounded-xl border border-slate-800">
+                <h3 class="text-sm font-semibold text-blue-400 mb-2">📡 Radar de Privacidad</h3>
+                <button id="share-location-btn" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium py-2 rounded-lg">Enviar mi ubicación actual</button>
+                <div id="radar-results" class="mt-3 text-xs text-slate-400 space-y-1"></div>
+            </div>
+
+            <!-- Chat en Tiempo Real -->
+            <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 flex-1 flex flex-col">
+                <h3 class="text-sm font-semibold text-blue-400 mb-2">💬 Chat en Tiempo Real</h3>
+                <div id="chat-messages" class="flex-1 bg-slate-950 border border-slate-800 rounded-lg p-3 h-48 overflow-y-auto text-xs space-y-2 mb-3"></div>
+                
+                <div class="flex space-x-2">
+                    <input type="text" id="receiver-id" placeholder="ID Destinatario" class="w-24 bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs">
+                    <input type="text" id="message-content" placeholder="Escribe un mensaje..." class="flex-1 bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs">
+                    <button id="send-msg-btn" class="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded-lg text-xs font-semibold">Enviar</button>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="p-4 text-center text-xs text-slate-600 border-t border-slate-900">
+        Sin Vueltas &copy; 2026 - Seguro y Descentralizado
+    </footer>
+
+    <!-- Lógica del Frontend -->
+    <script>
+        let isRegistering = false;
+        let token = localStorage.getItem('token') || null;
+        let socket = null;
+
+        const authSection = document.getElementById('auth-section');
+        const appSection = document.getElementById('app-section');
+        const authForm = document.getElementById('auth-form');
+        const authTitle = document.getElementById('auth-title');
+        const usernameField = document.getElementById('username-field');
+        const submitBtn = document.getElementById('submit-btn');
+        const toggleAuth = document.getElementById('toggle-auth');
+        const errorMsg = document.getElementById('error-msg');
+        const userInfo = document.getElementById('user-info');
+
+        // Si ya hay token guardado, saltar directo a la app
+        if (token) initApp();
+
+        toggleAuth.addEventListener('click', () => {
+            isRegistering = !isRegistering;
+            authTitle.textContent = isRegistering ? 'Crear Cuenta' : 'Iniciar Sesión';
+            submitBtn.textContent = isRegistering ? 'Registrarse' : 'Entrar';
+            toggleAuth.textContent = isRegistering ? '¿Ya tienes cuenta? Inicia sesión' : '¿No tienes cuenta? Regístrate aquí';
+            usernameField.classList.toggle('hidden', !isRegistering);
+        });
+
+        authForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            errorMsg.classList.add('hidden');
+
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const username = document.getElementById('username').value;
+
+            const endpoint = isRegistering ? '/api/auth/register' : '/api/auth/login';
+            const payload = isRegistering ? { email, password, username } : { email, password };
+
+            try {
+                const res = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+
+                if (!res.ok) throw new Error(data.error || 'Ocurrió un error');
+
+                if (isRegistering) {
+                    alert('Registro exitoso. Ahora inicia sesión.');
+                    isRegistering = false;
+                    toggleAuth.click();
+                } else {
+                    token = data.token;
+                    localStorage.setItem('token', token);
+                    userInfo.textContent = `Usuario ID: ${data.user.id}`;
+                    initApp();
+                }
+            } catch (err) {
+                errorMsg.textContent = err.message;
+                errorMsg.classList.remove('hidden');
+            }
+        });
+
+        // Cargar perfil propio y avatar
+        async function loadProfile() {
+            try {
+                const res = await fetch('/api/users/me', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (data.success) {
+                    document.getElementById('profile-username').textContent = data.user.username;
+                    userInfo.textContent = `Usuario ID: ${data.user.id}`;
+                    if (data.user.profile_image) {
+                        document.getElementById('user-avatar').src = data.user.profile_image;
+                    }
+                }
+            } catch (e) {
+                console.error('Error al cargar perfil:', e);
+            }
+        }
+
+        // Manejar cambio de foto de perfil
+        document.getElementById('avatar-input').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            if (file.size > 500 * 1024) {
+                alert('La imagen es demasiado pesada. Elige una menor a 500 KB.');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = async function(event) {
+                const base64Image = event.target.result;
+                document.getElementById('user-avatar').src = base64Image;
+
+                try {
+                    const res = await fetch('/api/users/me', {
+                        method: 'PUT',
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({ profile_image: base64Image })
+                    });
+                    const data = await res.json();
+                    if (!data.success) throw new Error(data.error);
+                    alert('Foto de perfil actualizada con éxito.');
+                } catch (err) {
+                    console.error('Error al guardar la imagen:', err);
+                    alert('No se pudo actualizar la foto de perfil.');
+                }
+            };
+            reader.readAsDataURL(file);
+        });
+
+        function initApp() {
+            authSection.classList.add('hidden');
+            appSection.classList.remove('hidden');
+
+            // Cargar datos y foto de perfil del usuario
+            loadProfile();
+
+            // Conectar WebSockets con Socket.io enviando el token
+            socket = io({
+                auth: { token }
+            });
+
+            socket.on('connect_error', (err) => {
+                console.error('Error de conexión socket:', err.message);
+            });
+
+            socket.on('new_message', (msg) => {
+                appendMessage(`De [${msg.sender_id}]: ${msg.content}`, 'text-blue-400');
+            });
+
+            socket.on('message_sent', (msg) => {
+                appendMessage(`Enviado a [${msg.receiver_id}]: ${msg.content}`, 'text-slate-400');
+            });
+        }
+
+        // Compartir ubicación
+        document.getElementById('share-location-btn').addEventListener('click', () => {
+            if (!navigator.geolocation) {
+                alert('La geolocalización no está soportada por tu navegador');
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(async (position) => {
+                const latitude = position.coords.latitude;
+                const longitude = position.coords.longitude;
+
+                try {
+                    const res = await fetch('/api/radar/location', {
+                        method: 'POST',
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({ latitude, longitude })
+                    });
+                    const data = await res.json();
+                    if(data.success) {
+                        alert('Ubicación actualizada con ruido de privacidad.');
+                        loadNearby();
+                    }
+                } catch (e) {
+                    console.error('Error al actualizar ubicación', e);
+                }
+            });
+        });
+
+        async function loadNearby() {
+            try {
+                const res = await fetch('/api/radar/nearby', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                const container = document.getElementById('radar-results');
+                container.innerHTML = `<span class="font-bold">Usuarios cercanos (${data.count}):</span>`;
+                data.users.forEach(u => {
+                    container.innerHTML += `<div>- ${u.username} (a ${u.distance_km.toFixed(2)} km)</div>`;
+                });
+            } catch (e) {
+                console.error('Error al cargar radar', e);
+            }
+        }
+
+        // Enviar mensaje por socket
+        document.getElementById('send-msg-btn').addEventListener('click', () => {
+            const receiverId = document.getElementById('receiver-id').value;
+            const content = document.getElementById('message-content').value;
+
+            if (!receiverId || !content) return;
+
+            socket.emit('private_message', { receiverId: parseInt(receiverId), content });
+            document.getElementById('message-content').value = '';
+        });
+
+        function appendMessage(text, className) {
+            const box = document.getElementById('chat-messages');
+            box.innerHTML += `<div class="${className}">${text}</div>`;
+            box.scrollTop = box.scrollHeight;
+        }
+
+        // Registro del Service Worker para PWA
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then((reg) => {
+                        console.log('Service Worker registrado exitosamente con alcance:', reg.scope);
+                    })
+                    .catch((err) => {
+                        console.error('Error al registrar el Service Worker:', err);
+                    });
+            });
+        }
+    </script>
+</body>
+</html>
