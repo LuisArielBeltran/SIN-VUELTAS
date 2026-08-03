@@ -1,12 +1,11 @@
 const { Pool } = require('pg');
 require('dotenv').config();
 
-// Conexión directa y blindada usando el proxy público de Railway
 const pool = new Pool({
-    user: process.env.PGUSER || process.env.POSTGRES_USER,
+    user: process.env.PGUSER || process.env.POSTGRES_USER || 'postgres',
     password: process.env.PGPASSWORD || process.env.POSTGRES_PASSWORD,
     host: 'yamabiko.proxy.rlwy.net',
-    database: process.env.PGDATABASE || process.env.POSTGRES_DB,
+    database: process.env.PGDATABASE || process.env.POSTGRES_DB || 'railway',
     port: 51338,
     ssl: {
         rejectUnauthorized: false // Indispensable para conexiones externas seguras
