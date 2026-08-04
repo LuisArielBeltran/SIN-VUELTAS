@@ -2,65 +2,63 @@ const jwt = require('jsonwebtoken');
 const db = require('../config/db');
 
 const configureSockets = (io) => {
-    // Middleware de autenticación de Socket.io mediante JWT
     io.use((socket, next) => {
         const token = socket.handshake.auth.token;
-        
-        if (!token) {
-            return next(new Error('Autenticación fallida: Token no proporcionado.'));
-        }
+        if (!token) return next(new Error('Autenticación fallida'));
 
         try {
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
-            socket.user = decoded; // Adjunta los datos del usuario al socket
+            socket.user = decoded; 
             next();
         } catch (err) {
-            next(new Error('Autenticación fallida: Token inválido o expirado.'));
+            next(new Error('Token inválido'));
         }
     });
 
-    // Auto-asegurar que la columna 'type' exista en la tabla messages de PostgreSQL
-    db.query(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS type VARCHAR(50) DEFAULT 'text';`).catch(err => {
-        console.error('Aviso de esquema messages (type):', err.message);
-    });
+    // Auto-asegurar que las columnas existan en la base de datos
+    db.query(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS type VARCHAR(50) DEFAULT 'text';`).catch(() => {});
+    db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'offline';`).catch(() => {});
 
-    io.on('connection', (socket) => {
-        console.log(`🔌 Usuario conectado al socket: ID ${socket.user.id}`);
-
-        // Unir al usuario a una sala privada basada en su ID único
+    io.on('connection', async (socket) => {
+        console.log(`🔌 Usuario conectado: ID ${socket.user.id}`);
         socket.join(`user_${socket.user.id}`);
 
-        // Escuchar el evento de envío de mensaje privado (Soporta texto y fotos efímeras)
+        // 1. Al conectar, marcar como "online"
+        await db.query("UPDATE users SET status = 'online', last_seen = NOW() WHERE id = $1", [socket.user.id]);
+
+        // 2. Escuchar cambios de estado (cuando la app se va a segundo plano o vuelve)
+        socket.on('change_status', async (newStatus) => {
+            if (['online', 'connected', 'offline'].includes(newStatus)) {
+                await db.query("UPDATE users SET status = $1, last_seen = NOW() WHERE id = $2", [newStatus, socket.user.id]);
+            }
+        });
+
+        // 3. Escuchar envío de mensajes
         socket.on('private_message', async ({ receiverId, content, type }) => {
             try {
                 if (!content || !receiverId) return;
-
                 const senderId = socket.user.id;
                 const messageType = type || 'text';
 
-                // Guardar el mensaje en la base de datos PostgreSQL incluyendo su tipo
                 const query = `
                     INSERT INTO messages (sender_id, receiver_id, content, type, created_at)
                     VALUES ($1, $2, $3, $4, NOW())
                     RETURNING id, sender_id, receiver_id, content, type, created_at;
                 `;
                 const { rows } = await db.query(query, [senderId, receiverId, content, messageType]);
-                const savedMessage = rows[0];
-
-                // Enviar el mensaje en tiempo real a la sala privada del destinatario
-                io.to(`user_${receiverId}`).emit('new_message', savedMessage);
-
-                // Confirmar al emisor que su mensaje fue guardado y despachado
-                socket.emit('message_sent', savedMessage);
+                
+                io.to(`user_${receiverId}`).emit('new_message', rows[0]);
+                socket.emit('message_sent', rows[0]);
 
             } catch (error) {
-                console.error('Error al procesar mensaje por socket:', error);
-                socket.emit('socket_error', { error: 'No se pudo enviar el mensaje.' });
+                console.error('Error al procesar mensaje:', error);
             }
         });
 
-        socket.on('disconnect', () => {
+        // 4. Al desconectar (cerrar la app o perder internet), marcar como "offline"
+        socket.on('disconnect', async () => {
             console.log(`🔌 Usuario desconectado: ID ${socket.user.id}`);
+            await db.query("UPDATE users SET status = 'offline', last_seen = NOW() WHERE id = $1", [socket.user.id]);
         });
     });
 };
