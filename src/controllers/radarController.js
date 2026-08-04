@@ -61,13 +61,13 @@ const getNearbyUsers = async (req, res) => {
         const userLon = userQuery.rows[0].longitude;
 
         // Consulta usando Haversine (Radio de la Tierra = 6371 km)
+        // NOTA: Se agregó 'status' en los dos SELECT para que el frontend pueda pintar los colores
         const query = `
-            SELECT id, username, profile_image, latitude, longitude, distance_km
+            SELECT id, username, profile_image, status, latitude, longitude, distance_km
             FROM (
-                SELECT id, username, profile_image, latitude, longitude,
+                SELECT id, username, profile_image, status, latitude, longitude,
                     (6371 * acos(
-                        cos(radians($1)) * cos(radians(latitude)) * 
-                        cos(radians(longitude) - radians($2)) + 
+                        cos(radians($1)) * cos(radians(latitude)) * cos(radians(longitude) - radians($2)) + 
                         sin(radians($1)) * sin(radians(latitude))
                     )) AS distance_km
                 FROM users
