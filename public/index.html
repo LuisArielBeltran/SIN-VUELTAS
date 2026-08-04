@@ -104,14 +104,14 @@
             </div>
 
             <!-- Chat en Tiempo Real Más Pequeño y Táctil -->
-            <div class="bg-slate-900 p-3 rounded-xl border border-slate-800 flex-1 flex flex-col">
+            <div class="bg-slate-900 p-3 rounded-xl border border-slate-800 flex flex-col">
                 <div class="flex justify-between items-center mb-1.5">
                     <h3 class="text-xs font-semibold text-blue-400">💬 Chat en Tiempo Real</h3>
                     <span id="active-chat-label" class="text-[10px] text-emerald-400 font-medium bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-900">Selecciona alguien arriba</span>
                 </div>
                 
                 <!-- Rectángulo de chat más pequeño (h-28) con scroll puramente táctil sin barra visual -->
-                <div id="chat-messages" class="flex-1 bg-slate-950 border border-slate-800 rounded-lg p-2.5 h-28 overflow-y-scroll scrollbar-none text-xs space-y-2 mb-2">
+                <div id="chat-messages" class="bg-slate-950 border border-slate-800 rounded-lg p-2.5 h-28 overflow-y-scroll scrollbar-none text-xs space-y-2 mb-2">
                     <p class="text-slate-600 text-center italic text-[11px] mt-6">Toca un usuario en "Conectados Cerca" para abrir su chat.</p>
                 </div>
                 
@@ -119,6 +119,17 @@
                     <input type="text" id="message-content" placeholder="Escribe un mensaje..." class="flex-1 bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs focus:outline-none focus:border-blue-500">
                     <button id="send-msg-btn" class="bg-blue-600 hover:bg-blue-500 px-3 py-2 rounded-lg text-xs font-semibold text-white">Enviar</button>
                 </div>
+            </div>
+
+            <!-- 🛠️ Buzón de Soporte y Sugerencias -->
+            <div class="bg-slate-900 p-3 rounded-xl border border-slate-800">
+                <h3 class="text-xs font-semibold text-blue-400 mb-1.5">📬 Soporte y Sugerencias</h3>
+                <div class="relative">
+                    <textarea id="support-input" maxlength="300" rows="2" placeholder="Escribe tus dudas o aportes..." class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-slate-100 focus:outline-none focus:border-blue-500 resize-none"></textarea>
+                    <!-- Contador de caracteres estilo marca de agua -->
+                    <span id="char-counter" class="absolute bottom-2 right-2 text-[9px] text-slate-600 pointer-events-none font-mono">300</span>
+                </div>
+                <button id="send-support-btn" class="w-full mt-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold py-1.5 rounded-lg transition">Enviar Mensaje</button>
             </div>
         </section>
 
@@ -298,7 +309,6 @@
                     });
                     const data = await res.json();
                     if(data.success) {
-                        // Mostrar icono pequeño arriba y ocultar el botón grande para ganar espacio
                         document.getElementById('location-indicator').classList.remove('hidden');
                         document.getElementById('location-indicator').classList.add('flex');
                         document.getElementById('radar-box').style.display = 'none';
@@ -440,6 +450,45 @@
 
             renderChatMessages();
             document.getElementById('message-content').value = '';
+        });
+
+        // Lógica del contador de caracteres y envío de soporte
+        const supportInput = document.getElementById('support-input');
+        const charCounter = document.getElementById('char-counter');
+
+        supportInput.addEventListener('input', () => {
+            const remaining = 300 - supportInput.value.length;
+            charCounter.textContent = remaining;
+        });
+
+        document.getElementById('send-support-btn').addEventListener('click', async () => {
+            const message = supportInput.value.trim();
+            if (!message) {
+                alert('Escribe un mensaje antes de enviar.');
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/support', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}` 
+                    },
+                    body: JSON.stringify({ message })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert('¡Gracias! Tu mensaje fue enviado al equipo.');
+                    supportInput.value = '';
+                    charCounter.textContent = '300';
+                } else {
+                    alert(data.error || 'No se pudo enviar el mensaje.');
+                }
+            } catch (e) {
+                console.error('Error de red:', e);
+                alert('Error de conexión.');
+            }
         });
 
         // Registrar Service Worker para PWA
