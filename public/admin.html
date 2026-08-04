@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Control - Sin Vueltas</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen p-6">
+    <div class="max-w-4xl mx-auto space-y-6">
+        
+        <!-- Header -->
+        <div class="flex justify-between items-center bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-xl">
+            <div>
+                <h1 class="text-xl font-bold text-blue-500">🛡️ Panel de Control Total</h1>
+                <p class="text-xs text-slate-400">Administración y Auditoría - Sin Vueltas</p>
+            </div>
+            <button onclick="logoutAdmin()" class="bg-red-950 hover:bg-red-900 text-red-400 text-xs px-3 py-2 rounded-lg border border-red-900">Cerrar Sesión</button>
+        </div>
+
+        <!-- Métricas Grid -->
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 text-center">
+                <span class="text-[10px] text-slate-400 uppercase">Totales</span>
+                <h3 id="stat-total" class="text-2xl font-bold text-slate-100 mt-1">-</h3>
+            </div>
+            <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 text-center">
+                <span class="text-[10px] text-emerald-400 uppercase">Conectados</span>
+                <h3 id="stat-connected" class="text-2xl font-bold text-emerald-400 mt-1">-</h3>
+            </div>
+            <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 text-center">
+                <span class="text-[10px] text-slate-500 uppercase">No Conectados</span>
+                <h3 id="stat-offline" class="text-2xl font-bold text-slate-400 mt-1">-</h3>
+            </div>
+            <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 text-center">
+                <span class="text-[10px] text-blue-400 uppercase">Plan Gratuito</span>
+                <h3 id="stat-free" class="text-2xl font-bold text-blue-400 mt-1">-</h3>
+            </div>
+            <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 text-center">
+                <span class="text-[10px] text-amber-400 uppercase">Suscriptos</span>
+                <h3 id="stat-premium" class="text-2xl font-bold text-amber-400 mt-1">-</h3>
+            </div>
+        </div>
+
+        <!-- Sección de Descarga de Reportes Word -->
+        <div class="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-xl space-y-4">
+            <h2 class="text-sm font-semibold text-blue-400">📄 Exportar Historial de Mensajes a Word</h2>
+            <p class="text-xs text-slate-400">Selecciona el rango de fechas para generar el documento de auditoría.</p>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                    <label class="block text-[10px] uppercase text-slate-400 mb-1">Desde</label>
+                    <input type="datetime-local" id="start-date" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-slate-100">
+                </div>
+                <div>
+                    <label class="block text-[10px] uppercase text-slate-400 mb-1">Hasta</label>
+                    <input type="datetime-local" id="end-date" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-slate-100">
+                </div>
+                <div class="flex items-end">
+                    <button onclick="downloadWordReport()" class="w-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold py-2.5 rounded-lg transition">Descargar Word (.doc)</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const token = localStorage.getItem('token');
+        if (!token) {
+            window.location.href = '/index.html';
+        }
+
+        async function loadMetrics() {
+            try {
+                const res = await fetch('/api/admin/metrics', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (data.success) {
+                    document.getElementById('stat-total').textContent = data.metrics.total;
+                    document.getElementById('stat-connected').textContent = data.metrics.connected;
+                    document.getElementById('stat-offline').textContent = data.metrics.offline;
+                    document.getElementById('stat-free').textContent = data.metrics.free;
+                    document.getElementById('stat-premium').textContent = data.metrics.premium;
+                } else {
+                    alert('No tienes permisos de administrador.');
+                    window.location.href = '/index.html';
+                }
+            } catch (e) {
+                console.error('Error al cargar métricas:', e);
+            }
+        }
+
+        async function downloadWordReport() {
+            const startDate = document.getElementById('start-date').value;
+            const endDate = document.getElementById('end-date').value;
+
+            let url = `/api/admin/export-messages`;
+            if (startDate && endDate) {
+                url += `?startDate=${startDate}&endDate=${endDate}`;
+            }
+
+            try {
+                const res = await fetch(url, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (!res.ok) {
+                    alert('Error al generar el archivo Word.');
+                    return;
+                }
+
+                const blob = await res.blob();
+                const downloadUrl = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = downloadUrl;
+                a.download = `reporte_mensajes_${Date.now()}.doc`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+            } catch (e) {
+                console.error('Error en descarga:', e);
+                alert('No se pudo descargar el reporte.');
+            }
+        }
+
+        function logoutAdmin() {
+            localStorage.removeItem('token');
+            window.location.href = '/index.html';
+        }
+
+        loadMetrics();
+        // Actualizar métricas cada 30 segundos en tiempo real
+        setInterval(loadMetrics, 30000);
+    </script>
+</body>
+</html>
