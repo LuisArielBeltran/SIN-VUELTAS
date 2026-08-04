@@ -9,6 +9,16 @@
     <!-- Socket.io cliente -->
     <script src="/socket.io/socket.io.js"></script>
     <link rel="manifest" href="/manifest.json">
+    <style>
+        /* Ocultar barra de desplazamiento manteniendo la fluidez del efecto ruleta */
+        .scrollbar-none::-webkit-scrollbar {
+            display: none;
+        }
+        .scrollbar-none {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between">
 
@@ -72,26 +82,32 @@
                 <button id="share-location-btn" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium py-2 rounded-lg">Enviar mi ubicación actual</button>
             </div>
 
-            <!-- 👥 Lista de Usuarios Conectados (Haz clic para chatear) -->
+            <!-- 👥 Lista de Usuarios Conectados (Efecto Ruleta - Máximo 3 visibles) -->
             <div class="bg-slate-900 p-4 rounded-xl border border-slate-800">
                 <div class="flex justify-between items-center mb-2">
-                    <h3 class="text-sm font-semibold text-blue-400">🟢 Conectados Cerca</h3>
+                    <h3 class="text-sm font-semibold text-blue-400">🟢 Conectados Cerca (Desliza)</h3>
                     <span id="users-count" class="text-[10px] text-slate-400">0 usuarios</span>
                 </div>
-                <div id="users-container" class="space-y-2 max-h-40 overflow-y-auto">
-                    <p class="text-xs text-slate-500">Comparte tu ubicación para ver quién está cerca...</p>
+                <!-- Altura fija restringida y scroll estilo ruleta con chasquido -->
+                <div id="users-container" class="space-y-2 h-36 overflow-y-scroll snap-y snap-mandatory scrollbar-none pr-1">
+                    <p class="text-xs text-slate-500 text-center py-6">Comparte tu ubicación para ver quién está cerca...</p>
                 </div>
             </div>
 
-            <!-- Chat en Tiempo Real -->
+            <!-- Chat en Tiempo Real por Persona -->
             <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 flex-1 flex flex-col">
-                <h3 class="text-sm font-semibold text-blue-400 mb-2">💬 Chat en Tiempo Real</h3>
-                <div id="chat-messages" class="flex-1 bg-slate-950 border border-slate-800 rounded-lg p-3 h-48 overflow-y-auto text-xs space-y-2 mb-3"></div>
+                <div class="flex justify-between items-center mb-2">
+                    <h3 class="text-sm font-semibold text-blue-400">💬 Chat en Tiempo Real</h3>
+                    <span id="active-chat-label" class="text-xs text-emerald-400 font-medium bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-900">Selecciona alguien arriba</span>
+                </div>
+                
+                <div id="chat-messages" class="flex-1 bg-slate-950 border border-slate-800 rounded-lg p-3 h-44 overflow-y-auto text-xs space-y-2 mb-3">
+                    <p class="text-slate-600 text-center italic mt-10">Toca un usuario en "Conectados Cerca" para abrir su chat.</p>
+                </div>
                 
                 <div class="flex space-x-2">
-                    <input type="text" id="receiver-id" placeholder="ID Destinatario" class="w-24 bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs" readonly>
-                    <input type="text" id="message-content" placeholder="Escribe un mensaje..." class="flex-1 bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs">
-                    <button id="send-msg-btn" class="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded-lg text-xs font-semibold">Enviar</button>
+                    <input type="text" id="message-content" placeholder="Escribe un mensaje..." class="flex-1 bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs focus:outline-none focus:border-blue-500">
+                    <button id="send-msg-btn" class="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded-lg text-xs font-semibold text-white">Enviar</button>
                 </div>
             </div>
         </section>
@@ -108,6 +124,13 @@
         let token = localStorage.getItem('token') || null;
         let socket = null;
 
+        // Estado del Chat y Conversaciones por Usuario
+        let usersMap = {}; // ID -> Nombre de usuario
+        let userAvatars = {}; // ID -> Avatar
+        let chats = {}; // ID_Usuario -> Array de mensajes
+        let activeReceiverId = null;
+        let activeReceiverName = '';
+
         const authSection = document.getElementById('auth-section');
         const appSection = document.getElementById('app-section');
         const authForm = document.getElementById('auth-form');
@@ -118,7 +141,6 @@
         const errorMsg = document.getElementById('error-msg');
         const userInfo = document.getElementById('user-info');
 
-        // Si ya hay token guardado, saltar directo a la app
         if (token) initApp();
 
         toggleAuth.addEventListener('click', () => {
@@ -157,7 +179,7 @@
                 } else {
                     token = data.token;
                     localStorage.setItem('token', token);
-                    userInfo.textContent = `Usuario ID: ${data.user.id}`;
+                    userInfo.textContent = `ID: ${data.user.id}`;
                     initApp();
                 }
             } catch (err) {
@@ -166,7 +188,6 @@
             }
         });
 
-        // Cargar perfil propio y avatar
         async function loadProfile() {
             try {
                 const res = await fetch('/api/users/me', {
@@ -175,7 +196,7 @@
                 const data = await res.json();
                 if (data.success) {
                     document.getElementById('profile-username').textContent = data.user.username;
-                    userInfo.textContent = `Usuario ID: ${data.user.id}`;
+                    userInfo.textContent = `ID: ${data.user.id}`;
                     if (data.user.profile_image) {
                         document.getElementById('user-avatar').src = data.user.profile_image;
                     }
@@ -185,7 +206,6 @@
             }
         }
 
-        // Manejar cambio de foto de perfil
         document.getElementById('avatar-input').addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (!file) return;
@@ -211,10 +231,8 @@
                     });
                     const data = await res.json();
                     if (!data.success) throw new Error(data.error);
-                    alert('Foto de perfil actualizada con éxito.');
                 } catch (err) {
                     console.error('Error al guardar la imagen:', err);
-                    alert('No se pudo actualizar la foto de perfil.');
                 }
             };
             reader.readAsDataURL(file);
@@ -227,7 +245,6 @@
             loadProfile();
             loadNearby();
 
-            // Conectar WebSockets con Socket.io
             socket = io({
                 auth: { token }
             });
@@ -236,16 +253,21 @@
                 console.error('Error de conexión socket:', err.message);
             });
 
+            // Recibir mensajes en tiempo real y organizarlos por usuario
             socket.on('new_message', (msg) => {
-                appendMessage(`De [ID ${msg.sender_id}]: ${msg.content}`, 'text-blue-400');
-            });
+                const senderId = msg.sender_id;
+                const senderName = usersMap[senderId] || `Usuario #${senderId}`;
 
-            socket.on('message_sent', (msg) => {
-                appendMessage(`Enviado a [ID ${msg.receiver_id}]: ${msg.content}`, 'text-slate-400');
+                if (!chats[senderId]) chats[senderId] = [];
+                chats[senderId].push({ sender: 'them', content: msg.content, name: senderName });
+
+                // Si estamos hablando con esta persona, actualizar pantalla de inmediato
+                if (activeReceiverId === senderId) {
+                    renderChatMessages();
+                }
             });
         }
 
-        // Compartir ubicación
         document.getElementById('share-location-btn').addEventListener('click', () => {
             if (!navigator.geolocation) {
                 alert('La geolocalización no está soportada por tu navegador');
@@ -267,7 +289,6 @@
                     });
                     const data = await res.json();
                     if(data.success) {
-                        alert('Ubicación actualizada correctamente.');
                         loadNearby();
                     }
                 } catch (e) {
@@ -276,7 +297,6 @@
             });
         });
 
-        // Cargar usuarios cercanos y renderizar la lista interactiva con avatares
         async function loadNearby() {
             try {
                 const res = await fetch('/api/radar/nearby', {
@@ -291,6 +311,7 @@
             }
         }
 
+        // Renderizar lista con efecto ruleta (snap-start y altura fija de 3 elementos)
         function renderUserList(users) {
             const container = document.getElementById('users-container');
             if (!container) return;
@@ -298,17 +319,20 @@
             container.innerHTML = '';
 
             if (!users || users.length === 0) {
-                container.innerHTML = '<p class="text-xs text-slate-500">No hay usuarios cercanos conectados.</p>';
+                container.innerHTML = '<p class="text-xs text-slate-500 text-center py-6">No hay usuarios cercanos.</p>';
                 return;
             }
 
             users.forEach(user => {
+                usersMap[user.id] = user.username;
+                userAvatars[user.id] = user.profile_image || user.avatar || 'https://via.placeholder.com/80';
+
                 const userElement = document.createElement('div');
-                userElement.className = 'flex items-center justify-between p-2 bg-slate-950 hover:bg-slate-800 rounded-lg cursor-pointer transition border border-slate-800';
+                // snap-start permite el efecto de frenado estilo ruleta al deslizar con el dedo
+                userElement.className = 'flex items-center justify-between p-2.5 bg-slate-950 hover:bg-slate-800 rounded-lg cursor-pointer transition border border-slate-800 snap-start';
                 
-                // Si el usuario tiene avatar personalizado, úsalo; si no, un placeholder por defecto
-                const avatarSrc = user.profile_image || user.avatar || 'https://via.placeholder.com/80';
-                const distancia = user.distance_km ? `(a ${user.distance_km.toFixed(2)} km)` : '';
+                const avatarSrc = userAvatars[user.id];
+                const distancia = user.distance_km ? `(${user.distance_km.toFixed(2)} km)` : '';
 
                 userElement.innerHTML = `
                     <div class="flex items-center space-x-3">
@@ -318,10 +342,9 @@
                             <span class="text-[10px] text-emerald-400">● En línea ${distancia}</span>
                         </div>
                     </div>
-                    <span class="text-[10px] bg-blue-900 text-blue-300 px-2 py-1 rounded">Chatear</span>
+                    <span class="text-[10px] bg-blue-900 text-blue-300 px-2.5 py-1 rounded-full font-medium">Chatear</span>
                 `;
 
-                // Al hacer clic sobre cualquier usuario, se selecciona automáticamente para el chat
                 userElement.addEventListener('click', () => {
                     seleccionarDestinatario(user.id, user.username);
                 });
@@ -330,44 +353,72 @@
             });
         }
 
+        // Seleccionar destinatario y abrir su diálogo de chat individual
         function seleccionarDestinatario(userId, username) {
-            const receiverInput = document.getElementById('receiver-id');
-            if (receiverInput) {
-                receiverInput.value = userId;
+            activeReceiverId = userId;
+            activeReceiverName = username;
+
+            // Mostrar el nombre del usuario en lugar del número
+            document.getElementById('active-chat-label').textContent = `Hablando con: ${username}`;
+            
+            if (!chats[userId]) {
+                chats[userId] = [];
             }
-            alert(`Has seleccionado a ${username} para chatear.`);
+
+            renderChatMessages();
+            document.getElementById('message-content').focus();
         }
 
-        // Enviar mensaje por socket
-        document.getElementById('send-msg-btn').addEventListener('click', () => {
-            const receiverId = document.getElementById('receiver-id').value;
-            const content = document.getElementById('message-content').value;
+        // Renderizar mensajes del diálogo activo
+        function renderChatMessages() {
+            const box = document.getElementById('chat-messages');
+            box.innerHTML = '';
 
-            if (!receiverId || !content) {
-                alert('Selecciona un usuario de la lista y escribe un mensaje.');
+            const messages = chats[activeReceiverId] || [];
+            if (messages.length === 0) {
+                box.innerHTML = `<p class="text-slate-500 text-center italic text-xs mt-12">Inicia la conversación enviando un mensaje a ${activeReceiverName}.</p>`;
                 return;
             }
 
-            socket.emit('private_message', { receiverId: parseInt(receiverId), content });
-            document.getElementById('message-content').value = '';
-        });
-
-        function appendMessage(text, className) {
-            const box = document.getElementById('chat-messages');
-            box.innerHTML += `<div class="${className}">${text}</div>`;
+            messages.forEach(msg => {
+                const isMe = msg.sender === 'me';
+                const align = isMe ? 'text-right' : 'text-left';
+                const bg = isMe ? 'bg-blue-950 border-blue-900 text-blue-200 ml-8' : 'bg-slate-900 border-slate-800 text-slate-200 mr-8';
+                
+                box.innerHTML += `
+                    <div class="${align}">
+                        <div class="inline-block p-2 rounded-lg border text-xs max-w-[85%] text-left ${bg}">
+                            <div class="text-[9px] text-slate-400 mb-0.5 font-semibold">${isMe ? 'Tú' : activeReceiverName}</div>
+                            <div>${msg.content}</div>
+                        </div>
+                    </div>
+                `;
+            });
             box.scrollTop = box.scrollHeight;
         }
 
-        // Registro del Service Worker para PWA
+        // Enviar mensaje por socket guardando en la conversación de esa persona
+        document.getElementById('send-msg-btn').addEventListener('click', () => {
+            if (!activeReceiverId) {
+                alert('Selecciona un usuario de la lista superior para chatear.');
+                return;
+            }
+            const content = document.getElementById('message-content').value.trim();
+            if (!content) return;
+
+            socket.emit('private_message', { receiverId: parseInt(activeReceiverId), content });
+
+            if (!chats[activeReceiverId]) chats[activeReceiverId] = [];
+            chats[activeReceiverId].push({ sender: 'me', content });
+
+            renderChatMessages();
+            document.getElementById('message-content').value = '';
+        });
+
+        // Registrar Service Worker para PWA
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js')
-                    .then((reg) => {
-                        console.log('Service Worker registrado exitosamente');
-                    })
-                    .catch((err) => {
-                        console.error('Error al registrar Service Worker:', err);
-                    });
+                navigator.serviceWorker.register('/sw.js').catch(() => {});
             });
         }
     </script>
