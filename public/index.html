@@ -252,6 +252,18 @@
                 auth: { token }
             });
 
+            document.addEventListener('visibilitychange', () => {
+                if (!socket) return;
+                if (document.visibilityState === 'visible') {
+                    // El usuario volvió a SIN VUELTAS
+                    socket.emit('change_status', 'online');
+                    loadNearby(); // Refrescar radar al instante
+                } else {
+                    // El usuario minimizó la app o abrió otra
+                    socket.emit('change_status', 'connected');
+                }
+            });
+
             socket.on('connect_error', (err) => {
                 console.error('Error de conexión socket:', err.message);
             });
