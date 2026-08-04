@@ -311,6 +311,39 @@
             }
         }
 
+        // Archivo: public/index.html
+        async function seleccionarDestinatario(userId, username) {
+            activeReceiverId = userId;
+            activeReceiverName = username;
+
+            document.getElementById('active-chat-label').textContent = `Hablando con: ${username}`;
+    
+            // Consultar el historial persistente en la base de datos
+            try {
+                const res = await fetch(`/api/messages/${userId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    // Mapeamos los mensajes de la base de datos al formato visual de la app
+                    chats[userId] = data.messages.map(msg => ({
+                        sender: msg.sender_id === activeReceiverId ? 'them' : 'me',
+                        content: msg.content,
+                        name: msg.sender_id === activeReceiverId ? username : 'Tú'
+                    }));
+                } else {
+                    chats[userId] = [];
+                }
+            } catch (e) {
+                console.error('Error al recuperar historial:', e);
+                chats[userId] = [];
+            }
+
+            renderChatMessages();
+            document.getElementById('message-content').focus();
+        }
+
         // Renderizar lista con efecto ruleta (snap-start y altura fija de 3 elementos)
         function renderUserList(users) {
             const container = document.getElementById('users-container');
