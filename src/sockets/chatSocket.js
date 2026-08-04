@@ -19,29 +19,35 @@ const configureSockets = (io) => {
         }
     });
 
+    // Auto-asegurar que la columna 'type' exista en la tabla messages de PostgreSQL
+    db.query(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS type VARCHAR(50) DEFAULT 'text';`).catch(err => {
+        console.error('Aviso de esquema messages (type):', err.message);
+    });
+
     io.on('connection', (socket) => {
         console.log(`🔌 Usuario conectado al socket: ID ${socket.user.id}`);
 
         // Unir al usuario a una sala privada basada en su ID único
         socket.join(`user_${socket.user.id}`);
 
-        // Escuchar el evento de envío de mensaje privado
-        socket.on('private_message', async ({ receiverId, content }) => {
+        // Escuchar el evento de envío de mensaje privado (Soporta texto y fotos efímeras)
+        socket.on('private_message', async ({ receiverId, content, type }) => {
             try {
                 if (!content || !receiverId) return;
 
                 const senderId = socket.user.id;
+                const messageType = type || 'text';
 
-                // Guardar el mensaje en la base de datos PostgreSQL
+                // Guardar el mensaje en la base de datos PostgreSQL incluyendo su tipo
                 const query = `
-                    INSERT INTO messages (sender_id, receiver_id, content, created_at)
-                    VALUES ($1, $2, $3, NOW())
-                    RETURNING id, sender_id, receiver_id, content, created_at;
+                    INSERT INTO messages (sender_id, receiver_id, content, type, created_at)
+                    VALUES ($1, $2, $3, $4, NOW())
+                    RETURNING id, sender_id, receiver_id, content, type, created_at;
                 `;
-                const { rows } = await db.query(query, [senderId, receiverId, content]);
+                const { rows } = await db.query(query, [senderId, receiverId, content, messageType]);
                 const savedMessage = rows[0];
 
-                // Enviar el mensaje en tiempo real al destinatario si está conectado
+                // Enviar el mensaje en tiempo real a la sala privada del destinatario
                 io.to(`user_${receiverId}`).emit('new_message', savedMessage);
 
                 // Confirmar al emisor que su mensaje fue guardado y despachado
