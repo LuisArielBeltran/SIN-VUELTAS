@@ -4,41 +4,34 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sin Vueltas</title>
-    <!-- Tailwind CSS para un diseño limpio y moderno -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Socket.io cliente -->
     <script src="/socket.io/socket.io.js"></script>
     <link rel="manifest" href="/manifest.json">
     <style>
-        /* Ocultar barra de desplazamiento manteniendo la fluidez táctil */
-        .scrollbar-none::-webkit-scrollbar {
-            display: none;
-        }
-        .scrollbar-none {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
+        .scrollbar-none::-webkit-scrollbar { display: none; }
+        .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
+        /* Estilo para avatares desconectados (Blanco y Negro / Grayscale) */
+        .grayscale-avatar {
+            filter: grayscale(100%);
+            opacity: 0.6;
         }
     </style>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between">
 
-    <!-- Header -->
     <header class="p-3 bg-slate-900 border-b border-slate-800 flex justify-between items-center">
         <h1 class="text-base font-bold tracking-wider text-blue-500">SIN VUELTAS</h1>
         <div class="flex items-center space-x-2">
-            <!-- Icono pequeño de ubicación activa (oculto hasta enviar ubicación) -->
-            <div id="location-indicator" class="hidden items-center space-x-1 bg-emerald-950/80 text-emerald-400 text-[10px] px-2 py-0.5 rounded-full border border-emerald-900 shadow" title="Ubicación compartida activa">
+            <div id="location-indicator" class="hidden items-center space-x-1 bg-emerald-950/80 text-emerald-400 text-[10px] px-2 py-0.5 rounded-full border border-emerald-900 shadow">
                 <span>📍</span>
-                <span>Activa</span>
+                <span>GPS Activo</span>
             </div>
             <div id="user-info" class="text-xs text-slate-400">No autenticado</div>
         </div>
     </header>
 
-    <!-- Contenedor Principal -->
     <main class="flex-1 p-3 max-w-md mx-auto w-full flex flex-col justify-center space-y-3">
 
-        <!-- Sección de Autenticación -->
         <section id="auth-section" class="bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-xl">
             <h2 id="auth-title" class="text-base font-semibold mb-3 text-center">Iniciar Sesión</h2>
             
@@ -65,10 +58,8 @@
             </div>
         </section>
 
-        <!-- Sección de la Aplicación (Oculta hasta iniciar sesión) -->
         <section id="app-section" class="hidden flex-1 flex flex-col space-y-3">
             
-            <!-- Perfil y Avatar Compacto -->
             <div class="bg-slate-900 p-3 rounded-xl border border-slate-800 flex items-center space-x-3">
                 <div class="relative">
                     <img id="user-avatar" src="https://via.placeholder.com/80" alt="Avatar" class="w-12 h-12 rounded-full object-cover border-2 border-blue-600">
@@ -83,50 +74,41 @@
                 </div>
             </div>
 
-            <!-- Radar de Privacidad Compacto -->
-            <div id="radar-box" class="bg-slate-900 p-3 rounded-xl border border-slate-800">
-                <button id="share-location-btn" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium py-2 rounded-lg flex items-center justify-center space-x-1.5 shadow-sm">
-                    <span>📍</span>
-                    <span>Enviar mi ubicación actual</span>
-                </button>
-            </div>
-
-            <!-- 👥 Lista de Usuarios Conectados (Efecto Ruleta - Máximo 3 visibles) -->
             <div class="bg-slate-900 p-3 rounded-xl border border-slate-800">
                 <div class="flex justify-between items-center mb-1.5">
                     <h3 class="text-xs font-semibold text-blue-400">🟢 Conectados Cerca (Desliza)</h3>
                     <span id="users-count" class="text-[9px] text-slate-400">0 usuarios</span>
                 </div>
-                <!-- Altura fija restringida y scroll estilo ruleta con chasquido -->
                 <div id="users-container" class="space-y-1.5 h-28 overflow-y-scroll snap-y snap-mandatory scrollbar-none pr-0.5">
-                    <p class="text-[11px] text-slate-500 text-center py-4">Comparte tu ubicación para ver quién está cerca...</p>
+                    <p class="text-[11px] text-slate-500 text-center py-4">Buscando usuarios cercanos automáticamente...</p>
                 </div>
             </div>
 
-            <!-- Chat en Tiempo Real Más Pequeño y Táctil -->
             <div class="bg-slate-900 p-3 rounded-xl border border-slate-800 flex flex-col">
                 <div class="flex justify-between items-center mb-1.5">
                     <h3 class="text-xs font-semibold text-blue-400">💬 Chat en Tiempo Real</h3>
                     <span id="active-chat-label" class="text-[10px] text-emerald-400 font-medium bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-900">Selecciona alguien arriba</span>
                 </div>
                 
-                <!-- Rectángulo de chat más pequeño (h-28) con scroll puramente táctil sin barra visual -->
                 <div id="chat-messages" class="bg-slate-950 border border-slate-800 rounded-lg p-2.5 h-28 overflow-y-scroll scrollbar-none text-xs space-y-2 mb-2">
                     <p class="text-slate-600 text-center italic text-[11px] mt-6">Toca un usuario en "Conectados Cerca" para abrir su chat.</p>
                 </div>
                 
-                <div class="flex space-x-2">
+                <div class="flex items-center space-x-2">
+                    <label for="ephemeral-photo-input" class="cursor-pointer bg-slate-800 hover:bg-slate-700 text-slate-300 p-2 rounded-lg text-xs" title="Enviar foto de una vista">
+                        📷
+                    </label>
+                    <input type="file" id="ephemeral-photo-input" accept="image/*" class="hidden">
+
                     <input type="text" id="message-content" placeholder="Escribe un mensaje..." class="flex-1 bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs focus:outline-none focus:border-blue-500">
                     <button id="send-msg-btn" class="bg-blue-600 hover:bg-blue-500 px-3 py-2 rounded-lg text-xs font-semibold text-white">Enviar</button>
                 </div>
             </div>
 
-            <!-- 🛠️ Buzón de Soporte y Sugerencias -->
             <div class="bg-slate-900 p-3 rounded-xl border border-slate-800">
                 <h3 class="text-xs font-semibold text-blue-400 mb-1.5">📬 Soporte y Sugerencias</h3>
                 <div class="relative">
                     <textarea id="support-input" maxlength="300" rows="2" placeholder="Escribe tus dudas o aportes..." class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-slate-100 focus:outline-none focus:border-blue-500 resize-none"></textarea>
-                    <!-- Contador de caracteres estilo marca de agua -->
                     <span id="char-counter" class="absolute bottom-2 right-2 text-[9px] text-slate-600 pointer-events-none font-mono">300</span>
                 </div>
                 <button id="send-support-btn" class="w-full mt-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold py-1.5 rounded-lg transition">Enviar Mensaje</button>
@@ -139,7 +121,6 @@
         Sin Vueltas &copy; 2026 - Seguro y Descentralizado
     </footer>
 
-    <!-- Lógica Unificada del Frontend -->
     <script>
         let isRegistering = false;
         let token = localStorage.getItem('token') || null;
@@ -264,7 +245,7 @@
             appSection.classList.remove('hidden');
 
             loadProfile();
-            loadNearby();
+            autoStartGeolocation(); // Geolocalización automática sin botón
 
             socket = io({
                 auth: { token }
@@ -274,12 +255,18 @@
                 console.error('Error de conexión socket:', err.message);
             });
 
+            // Escuchar mensajes en tiempo real (texto y fotos efímeras)
             socket.on('new_message', (msg) => {
                 const senderId = msg.sender_id;
                 const senderName = usersMap[senderId] || `Usuario #${senderId}`;
 
                 if (!chats[senderId]) chats[senderId] = [];
-                chats[senderId].push({ sender: 'them', content: msg.content, name: senderName });
+                chats[senderId].push({ 
+                    sender: 'them', 
+                    content: msg.content, 
+                    type: msg.type || 'text', 
+                    created_at: msg.created_at || new Date().toISOString() 
+                });
 
                 if (activeReceiverId === senderId) {
                     renderChatMessages();
@@ -287,13 +274,14 @@
             });
         }
 
-        // Compartir ubicación y mostrar el icono superior compacto
-        document.getElementById('share-location-btn').addEventListener('click', () => {
+        // Geolocalización 100% automática al iniciar la app
+        function autoStartGeolocation() {
             if (!navigator.geolocation) {
-                alert('La geolocalización no está soportada por tu navegador');
+                alert('La geolocalización no está soportada por tu dispositivo.');
                 return;
             }
 
+            // Solicitar posición de forma transparente
             navigator.geolocation.getCurrentPosition(async (position) => {
                 const latitude = position.coords.latitude;
                 const longitude = position.coords.longitude;
@@ -311,14 +299,18 @@
                     if(data.success) {
                         document.getElementById('location-indicator').classList.remove('hidden');
                         document.getElementById('location-indicator').classList.add('flex');
-                        document.getElementById('radar-box').style.display = 'none';
                         loadNearby();
+                        // Refrescar radar cada 30 segundos en segundo plano
+                        setInterval(loadNearby, 30000);
                     }
                 } catch (e) {
-                    console.error('Error al actualizar ubicación', e);
+                    console.error('Error al enviar ubicación automática', e);
                 }
-            });
-        });
+            }, (error) => {
+                // Si el usuario tiene el GPS apagado o deniega permisos
+                alert('⚠️ Para utilizar el radar y ver quién está cerca, debes activar la ubicación (GPS) en tu dispositivo.');
+            }, { enableHighAccuracy: true, timeout: 10000 });
+        }
 
         async function loadNearby() {
             try {
@@ -334,7 +326,7 @@
             }
         }
 
-        // Renderizar lista con efecto ruleta (snap-start y altura fija de 3 elementos)
+        // Renderizar lista con estados visuales (Color vs Blanco y Negro)
         function renderUserList(users) {
             const container = document.getElementById('users-container');
             if (!container) return;
@@ -356,12 +348,28 @@
                 const avatarSrc = userAvatars[user.id];
                 const distancia = user.distance_km ? `(${user.distance_km.toFixed(2)} km)` : '';
 
+                // Lógica de conectividad exacta solicitada:
+                // - En línea (Color vibrante + etiqueta)
+                // - Conectado (App abierta pero usando otra app)
+                // - Desconectado (Blanco y negro / Grayscale)
+                let statusBadge = '';
+                let avatarClass = 'w-7 h-7 rounded-full object-cover border border-blue-500';
+
+                if (user.status === 'online') {
+                    statusBadge = `<span class="text-[9px] text-emerald-400 font-semibold">● En línea ${distancia}</span>`;
+                } else if (user.status === 'connected') {
+                    statusBadge = `<span class="text-[9px] text-amber-400 font-medium">● Conectado ${distancia}</span>`;
+                } else {
+                    statusBadge = `<span class="text-[9px] text-slate-500 font-normal">Desconectado</span>`;
+                    avatarClass += ' grayscale-avatar'; // Aplica escala de grises solicitada
+                }
+
                 userElement.innerHTML = `
                     <div class="flex items-center space-x-2.5">
-                        <img src="${avatarSrc}" alt="${user.username}" class="w-7 h-7 rounded-full object-cover border border-blue-500">
+                        <img src="${avatarSrc}" alt="${user.username}" class="${avatarClass}">
                         <div>
                             <h4 class="text-[11px] font-semibold text-slate-200">${user.username}</h4>
-                            <span class="text-[9px] text-emerald-400">● En línea ${distancia}</span>
+                            ${statusBadge}
                         </div>
                     </div>
                     <span class="text-[9px] bg-blue-900 text-blue-300 px-2 py-0.5 rounded-full font-medium">Chatear</span>
@@ -391,9 +399,11 @@
                     chats[userId] = data.messages.map(msg => {
                         const isMe = msg.sender_id === currentUserId;
                         return {
+                            id: msg.id,
                             sender: isMe ? 'me' : 'them',
                             content: msg.content,
-                            name: isMe ? 'Tú' : username
+                            type: msg.type || 'text',
+                            created_at: msg.created_at
                         };
                     });
                 } else {
@@ -408,6 +418,20 @@
             document.getElementById('message-content').focus();
         }
 
+        // Función para calcular etiquetas temporales inteligentes ("Ayer", "La semana pasada", etc.)
+        function getTemporalLabel(dateString) {
+            const msgDate = new Date(dateString);
+            const now = new Date();
+            const diffDays = Math.floor((now - msgDate) / (1000 * 60 * 60 * 24));
+
+            if (diffDays === 0) return 'Hoy';
+            if (diffDays === 1) return 'Ayer';
+            if (diffDays <= 7) return 'La semana pasada';
+            if (diffDays <= 30) return 'El mes pasado';
+            return 'Historial antiguo';
+        }
+
+        // Renderizar mensajes con agrupación temporal única en la parte superior y fotos de una vista
         function renderChatMessages() {
             const box = document.getElementById('chat-messages');
             box.innerHTML = '';
@@ -418,16 +442,47 @@
                 return;
             }
 
-            messages.forEach(msg => {
+            let lastLabel = '';
+
+            messages.forEach((msg, index) => {
+                // Calcular etiqueta temporal
+                const currentLabel = getTemporalLabel(msg.created_at || new Date());
+                
+                // Mostrar la etiqueta temporal única solo una vez cuando cambia de rango
+                if (currentLabel !== lastLabel) {
+                    box.innerHTML += `
+                        <div class="text-center my-2">
+                            <span class="text-[9px] bg-slate-900 text-slate-400 px-2 py-0.5 rounded-full border border-slate-800 uppercase tracking-wider font-semibold">${currentLabel}</span>
+                        </div>
+                    `;
+                    lastLabel = currentLabel;
+                }
+
                 const isMe = msg.sender === 'me';
                 const align = isMe ? 'text-right' : 'text-left';
                 const bg = isMe ? 'bg-blue-950 border-blue-900 text-blue-200 ml-6' : 'bg-slate-900 border-slate-800 text-slate-200 mr-6';
                 
+                let contentHtml = '';
+                if (msg.type === 'ephemeral_photo') {
+                    if (isMe) {
+                        contentHtml = `<span class="italic text-[10px] text-blue-300">📸 [Foto efímera enviada]</span>`;
+                    } else {
+                        // Foto de una sola vista para el receptor
+                        contentHtml = `
+                            <div class="cursor-pointer bg-slate-950 p-2 rounded border border-blue-600 text-center" onclick="verFotoEfimera(this, '${msg.content}')">
+                                <span class="text-[10px] text-blue-400 font-bold">👁️ Toca para ver foto (1 sola vez)</span>
+                            </div>
+                        `;
+                    }
+                } else {
+                    contentHtml = `<div>${msg.content}</div>`;
+                }
+
                 box.innerHTML += `
                     <div class="${align}">
                         <div class="inline-block p-2 rounded-lg border text-[11px] max-w-[85%] text-left ${bg}">
                             <div class="text-[8px] text-slate-400 mb-0.5 font-semibold">${isMe ? 'Tú' : activeReceiverName}</div>
-                            <div>${msg.content}</div>
+                            ${contentHtml}
                         </div>
                     </div>
                 `;
@@ -435,6 +490,23 @@
             box.scrollTop = box.scrollHeight;
         }
 
+        // Lógica visual para ver la foto efímera una sola vez y destruirla
+        window.verFotoEfimera = function(elementContainer, photoUrl) {
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black/90 z-50 flex flex-col items-center justify-center p-4';
+            modal.innerHTML = `
+                <div class="relative max-w-sm w-full bg-slate-900 p-2 rounded-xl border border-slate-700 text-center space-y-3">
+                    <p class="text-xs text-amber-400 font-semibold">⚠️ Foto de visualización única (Se autodestruirá al cerrar)</p>
+                    <img src="${photoUrl}" class="w-full rounded-lg object-contain max-h-[70vh]">
+                    <button onclick="this.closest('.fixed').remove()" class="w-full bg-red-600 hover:bg-red-500 text-white text-xs font-bold py-2 rounded-lg">Cerrar y Destruir para siempre</button>
+                </div>
+            `;
+            document.body.appendChild(modal);
+            // Reemplazar el contenedor por un aviso de que ya fue vista
+            elementContainer.innerHTML = `<span class="italic text-[10px] text-slate-500 line-through">📸 Foto efímera ya visualizada</span>`;
+        };
+
+        // Enviar mensaje de texto
         document.getElementById('send-msg-btn').addEventListener('click', () => {
             if (!activeReceiverId) {
                 alert('Selecciona un usuario de la lista superior para chatear.');
@@ -443,16 +515,53 @@
             const content = document.getElementById('message-content').value.trim();
             if (!content) return;
 
-            socket.emit('private_message', { receiverId: parseInt(activeReceiverId), content });
+            socket.emit('private_message', { receiverId: parseInt(activeReceiverId), content, type: 'text' });
 
             if (!chats[activeReceiverId]) chats[activeReceiverId] = [];
-            chats[activeReceiverId].push({ sender: 'me', content });
+            chats[activeReceiverId].push({ sender: 'me', content, type: 'text', created_at: new Date().toISOString() });
 
             renderChatMessages();
             document.getElementById('message-content').value = '';
         });
 
-        // Lógica del contador de caracteres y envío de soporte
+        // Enviar foto efímera
+        document.getElementById('ephemeral-photo-input').addEventListener('change', (e) => {
+            if (!activeReceiverId) {
+                alert('Selecciona un usuario primero.');
+                return;
+            }
+            const file = e.target.files[0];
+            if (!file) return;
+
+            if (file.size > 800 * 1024) {
+                alert('La foto es muy pesada. Máximo 800 KB.');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const base64Image = event.target.result;
+
+                socket.emit('private_message', { 
+                    receiverId: parseInt(activeReceiverId), 
+                    content: base64Image, 
+                    type: 'ephemeral_photo' 
+                });
+
+                if (!chats[activeReceiverId]) chats[activeReceiverId] = [];
+                chats[activeReceiverId].push({ 
+                    sender: 'me', 
+                    content: base64Image, 
+                    type: 'ephemeral_photo', 
+                    created_at: new Date().toISOString() 
+                });
+
+                renderChatMessages();
+            };
+            reader.readAsDataURL(file);
+        });
+
+        // Soporte
         const supportInput = document.getElementById('support-input');
         const charCounter = document.getElementById('char-counter');
 
@@ -463,10 +572,7 @@
 
         document.getElementById('send-support-btn').addEventListener('click', async () => {
             const message = supportInput.value.trim();
-            if (!message) {
-                alert('Escribe un mensaje antes de enviar.');
-                return;
-            }
+            if (!message) return;
 
             try {
                 const res = await fetch('/api/support', {
@@ -479,24 +585,14 @@
                 });
                 const data = await res.json();
                 if (data.success) {
-                    alert('¡Gracias! Tu mensaje fue enviado al equipo.');
+                    alert('¡Gracias! Tu mensaje fue enviado.');
                     supportInput.value = '';
                     charCounter.textContent = '300';
-                } else {
-                    alert(data.error || 'No se pudo enviar el mensaje.');
                 }
             } catch (e) {
                 console.error('Error de red:', e);
-                alert('Error de conexión.');
             }
         });
-
-        // Registrar Service Worker para PWA
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js').catch(() => {});
-            });
-        }
     </script>
 </body>
 </html>
