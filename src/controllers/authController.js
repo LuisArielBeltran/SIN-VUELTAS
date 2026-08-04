@@ -63,6 +63,15 @@ const login = async (req, res) => {
             return res.status(401).json({ error: 'Credenciales inválidas.' });
         }
 
+        // ==========================================
+        // 🌟 TRUCO TEMPORAL PARA HACERTE PREMIUM 🌟
+        // (Reemplaza 'tu_correo_de_prueba@email.com' por tu correo real)
+        // ==========================================
+        if (email === 'tu_correo_de_prueba@email.com') {
+            await db.query('UPDATE users SET is_premium = TRUE WHERE email = $1', [email]);
+            user.is_premium = true; 
+        }
+
         // Generar Token JWT (expira en 7 días)
         const token = jwt.sign(
             { id: user.id, email: user.email },
@@ -77,7 +86,8 @@ const login = async (req, res) => {
             user: {
                 id: user.id,
                 email: user.email,
-                username: user.username
+                username: user.username,
+                is_premium: user.is_premium || false
             }
         });
     } catch (error) {
