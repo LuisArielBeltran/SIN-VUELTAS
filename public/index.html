@@ -130,6 +130,7 @@
         let chats = {}; // ID_Usuario -> Array de mensajes
         let activeReceiverId = null;
         let activeReceiverName = '';
+        let currentUserId = null; // Guardará tu propio ID obtenido en el perfil
 
         const authSection = document.getElementById('auth-section');
         const appSection = document.getElementById('app-section');
@@ -179,7 +180,8 @@
                 } else {
                     token = data.token;
                     localStorage.setItem('token', token);
-                    userInfo.textContent = `ID: ${data.user.id}`;
+                    currentUserId = data.user.id;
+                    userInfo.textContent = `ID: ${currentUserId}`;
                     initApp();
                 }
             } catch (err) {
@@ -195,8 +197,9 @@
                 });
                 const data = await res.json();
                 if (data.success) {
+                    currentUserId = data.user.id;
                     document.getElementById('profile-username').textContent = data.user.username;
-                    userInfo.textContent = `ID: ${data.user.id}`;
+                    userInfo.textContent = `ID: ${currentUserId}`;
                     if (data.user.profile_image) {
                         document.getElementById('user-avatar').src = data.user.profile_image;
                     }
@@ -221,7 +224,7 @@
                 document.getElementById('user-avatar').src = base64Image;
 
                 try {
-                    const res = await fetch('/api/users/me', {
+                    await fetch('/api/users/me', {
                         method: 'PUT',
                         headers: { 
                             'Content-Type': 'application/json',
@@ -229,8 +232,6 @@
                         },
                         body: JSON.stringify({ profile_image: base64Image })
                     });
-                    const data = await res.json();
-                    if (!data.success) throw new Error(data.error);
                 } catch (err) {
                     console.error('Error al guardar la imagen:', err);
                 }
@@ -261,7 +262,6 @@
                 if (!chats[senderId]) chats[senderId] = [];
                 chats[senderId].push({ sender: 'them', content: msg.content, name: senderName });
 
-                // Si estamos hablando con esta persona, actualizar pantalla de inmediato
                 if (activeReceiverId === senderId) {
                     renderChatMessages();
                 }
@@ -311,39 +311,6 @@
             }
         }
 
-        // Archivo: public/index.html
-        async function seleccionarDestinatario(userId, username) {
-            activeReceiverId = userId;
-            activeReceiverName = username;
-
-            document.getElementById('active-chat-label').textContent = `Hablando con: ${username}`;
-    
-            // Consultar el historial persistente en la base de datos
-            try {
-                const res = await fetch(`/api/messages/${userId}`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                const data = await res.json();
-
-                if (data.success) {
-                    // Mapeamos los mensajes de la base de datos al formato visual de la app
-                    chats[userId] = data.messages.map(msg => ({
-                        sender: msg.sender_id === activeReceiverId ? 'them' : 'me',
-                        content: msg.content,
-                        name: msg.sender_id === activeReceiverId ? username : 'Tú'
-                    }));
-                } else {
-                    chats[userId] = [];
-                }
-            } catch (e) {
-                console.error('Error al recuperar historial:', e);
-                chats[userId] = [];
-            }
-
-            renderChatMessages();
-            document.getElementById('message-content').focus();
-        }
-
         // Renderizar lista con efecto ruleta (snap-start y altura fija de 3 elementos)
         function renderUserList(users) {
             const container = document.getElementById('users-container');
@@ -361,7 +328,6 @@
                 userAvatars[user.id] = user.profile_image || user.avatar || 'https://via.placeholder.com/80';
 
                 const userElement = document.createElement('div');
-                // snap-start permite el efecto de frenado estilo ruleta al deslizar con el dedo
                 userElement.className = 'flex items-center justify-between p-2.5 bg-slate-950 hover:bg-slate-800 rounded-lg cursor-pointer transition border border-slate-800 snap-start';
                 
                 const avatarSrc = userAvatars[user.id];
@@ -386,15 +352,34 @@
             });
         }
 
-        // Seleccionar destinatario y abrir su diálogo de chat individual
-        function seleccionarDestinatario(userId, username) {
+        // Seleccionar destinatario, pedir historial a la BD y abrir chat individual
+        async function seleccionarDestinatario(userId, username) {
             activeReceiverId = userId;
             activeReceiverName = username;
 
-            // Mostrar el nombre del usuario en lugar del número
             document.getElementById('active-chat-label').textContent = `Hablando con: ${username}`;
             
-            if (!chats[userId]) {
+            // Consultar el historial persistente de la base de datos (hasta 6 meses)
+            try {
+                const res = await fetch(`/api/messages/${userId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    chats[userId] = data.messages.map(msg => {
+                        const isMe = msg.sender_id === currentUserId;
+                        return {
+                            sender: isMe ? 'me' : 'them',
+                            content: msg.content,
+                            name: isMe ? 'Tú' : username
+                        };
+                    });
+                } else {
+                    chats[userId] = [];
+                }
+            } catch (e) {
+                console.error('Error al recuperar historial:', e);
                 chats[userId] = [];
             }
 
