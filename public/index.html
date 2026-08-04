@@ -15,6 +15,11 @@
             filter: grayscale(100%);
             opacity: 0.6;
         }
+        /* NUEVO: Brillo dorado para avatares premium */
+        .premium-border {
+            border-color: #fbbf24 !important; 
+            box-shadow: 0 0 8px rgba(251, 191, 36, 0.5); 
+        }
     </style>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between">
@@ -60,26 +65,31 @@
 
         <section id="app-section" class="hidden flex-1 flex flex-col space-y-3">
             
-            <div class="bg-slate-900 p-3 rounded-xl border border-slate-800 flex items-center space-x-3">
-                <div class="relative">
-                    <img id="user-avatar" src="https://via.placeholder.com/80" alt="Avatar" class="w-12 h-12 rounded-full object-cover border-2 border-blue-600">
-                    <label for="avatar-input" class="absolute bottom-0 right-0 bg-blue-600 hover:bg-blue-500 text-white p-0.5 rounded-full cursor-pointer text-[10px]">
-                        ✏️
-                    </label>
-                    <input type="file" id="avatar-input" accept="image/*" class="hidden">
-                </div>
-                <div>
-                    <h3 id="profile-username" class="text-xs font-semibold text-slate-100">Cargando...</h3>
-                    <p class="text-[10px] text-slate-400">Toca el lápiz para cambiar foto</p>
+            <div class="bg-slate-900 p-3 rounded-xl border border-slate-800 flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="relative">
+                        <img id="user-avatar" src="https://via.placeholder.com/80" alt="Avatar" class="w-12 h-12 rounded-full object-cover border-2 border-blue-600">
+                        <label for="avatar-input" class="absolute bottom-0 right-0 bg-blue-600 hover:bg-blue-500 text-white p-0.5 rounded-full cursor-pointer text-[10px]">
+                            ✏️
+                        </label>
+                        <input type="file" id="avatar-input" accept="image/*" class="hidden">
+                    </div>
+                    <div>
+                        <h3 id="profile-username" class="text-xs font-semibold text-slate-100 flex items-center">Cargando...</h3>
+                        <p id="profile-plan" class="text-[10px] text-slate-400">Plan Gratuito</p>
+                    </div>
                 </div>
             </div>
 
             <div class="bg-slate-900 p-3 rounded-xl border border-slate-800">
-                <div class="flex justify-between items-center mb-1.5">
-                    <h3 class="text-xs font-semibold text-blue-400">🟢 Conectados Cerca (Desliza)</h3>
-                    <span id="users-count" class="text-[9px] text-slate-400">0 usuarios</span>
+                <div class="flex justify-between items-end mb-1.5">
+                    <div>
+                        <h3 class="text-xs font-semibold text-blue-400">🟢 Conectados Cerca</h3>
+                        <span id="radar-info" class="text-[9px] text-slate-500">Radio: 2 km máx</span>
+                    </div>
+                    <span id="users-count" class="text-[9px] text-slate-400 bg-slate-950 px-2 py-0.5 rounded-full border border-slate-800">0 usuarios</span>
                 </div>
-                <div id="users-container" class="space-y-1.5 h-28 overflow-y-scroll snap-y snap-mandatory scrollbar-none pr-0.5">
+                <div id="users-container" class="space-y-1.5 h-28 overflow-y-scroll snap-y snap-mandatory scrollbar-none pr-0.5 mt-2">
                     <p class="text-[11px] text-slate-500 text-center py-4">Buscando usuarios cercanos automáticamente...</p>
                 </div>
             </div>
@@ -133,6 +143,7 @@
         let activeReceiverId = null;
         let activeReceiverName = '';
         let currentUserId = null; 
+        let isCurrentUserPremium = false; // NUEVO: Variable de estado premium
 
         const authSection = document.getElementById('auth-section');
         const appSection = document.getElementById('app-section');
@@ -200,8 +211,19 @@
                 const data = await res.json();
                 if (data.success) {
                     currentUserId = data.user.id;
-                    document.getElementById('profile-username').textContent = data.user.username;
-                    userInfo.textContent = `ID: ${currentUserId}`;
+                    isCurrentUserPremium = data.user.is_premium || false; // NUEVO
+                    
+                    // NUEVO: Lógica visual Premium para el perfil
+                    const crownHTML = isCurrentUserPremium ? `<span class="text-amber-400 ml-1 drop-shadow-md text-sm" title="Cuenta Premium">👑</span>` : '';
+                    document.getElementById('profile-username').innerHTML = `${data.user.username} ${crownHTML}`;
+                    
+                    document.getElementById('profile-plan').innerHTML = isCurrentUserPremium ? `<span class="text-amber-400 font-bold">Plan Premium ⚡</span>` : `Plan Gratuito`;
+                    userInfo.innerHTML = `ID: ${currentUserId} ${isCurrentUserPremium ? '<span class="text-amber-400 font-bold ml-1">PRO</span>' : ''}`;
+
+                    if (isCurrentUserPremium) {
+                        document.getElementById('user-avatar').classList.add('premium-border');
+                    }
+
                     if (data.user.profile_image) {
                         document.getElementById('user-avatar').src = data.user.profile_image;
                     }
@@ -329,6 +351,12 @@
                 const data = await res.json();
                 
                 document.getElementById('users-count').textContent = `${data.count || 0} usuarios`;
+                
+                // NUEVO: Actualizar texto del radar basado en el plan
+                document.getElementById('radar-info').innerHTML = data.isPremium 
+                    ? `<span class="text-amber-400 font-semibold">Radar Ciudad: 50 km</span>` 
+                    : `Radio: 2 km (Mejora tu plan)`;
+
                 renderUserList(data.users);
             } catch (e) {
                 console.error('Error al cargar radar', e);
@@ -360,7 +388,8 @@
                 const distancia = user.distance_km ? `(${user.distance_km.toFixed(2)} km)` : '';
 
                 let statusBadge = '';
-                let avatarClass = 'w-7 h-7 rounded-full object-cover border border-blue-500';
+                // NUEVO: Agregar borde dorado dinámico si el usuario escaneado es premium
+                let avatarClass = `w-7 h-7 rounded-full object-cover border ${user.is_premium ? 'premium-border' : 'border-blue-500'}`;
 
                 if (user.status === 'online') {
                     statusBadge = `<span class="text-[9px] text-emerald-400 font-semibold">● En línea ${distancia}</span>`;
@@ -371,13 +400,15 @@
                     avatarClass += ' grayscale-avatar';
                 }
 
+                // NUEVO: Corona para el nombre en la ruleta
+                const crownIcon = user.is_premium ? `<span class="text-[10px] ml-1" title="Premium">👑</span>` : '';
                 const notificationIndicator = hasUnread ? `<span class="w-2 h-2 rounded-full bg-amber-400 animate-ping inline-block mr-1"></span>` : '';
 
                 userElement.innerHTML = `
                     <div class="flex items-center space-x-2.5">
                         <img src="${avatarSrc}" alt="${user.username}" class="${avatarClass}">
                         <div>
-                            <h4 class="text-[11px] font-semibold text-slate-200 flex items-center">${notificationIndicator}${user.username}</h4>
+                            <h4 class="text-[11px] font-semibold text-slate-200 flex items-center">${notificationIndicator}${user.username} ${crownIcon}</h4>
                             ${statusBadge}
                         </div>
                     </div>
