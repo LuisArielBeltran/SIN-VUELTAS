@@ -72,6 +72,30 @@ app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, '../public', 'index.html'));
 });
 
+// Archivo: src/index.js
+// Endpoint para recuperar el historial de chat entre el usuario actual y un destinatario
+app.get('/api/messages/:recipientId', authenticateToken, async (req, res) => {
+    try {
+        const myId = req.user.id;
+        const recipientId = req.params.recipientId;
+
+        const query = `
+            SELECT sender_id, receiver_id, content, created_at 
+            FROM messages 
+            WHERE (sender_id = $1 AND receiver_id = $2) 
+               OR (sender_id = $2 AND receiver_id = $1)
+            ORDER BY created_at ASC
+        `;
+        
+        const result = await db.query(query, [myId, recipientId]);
+        
+        res.json({ success: true, messages: result.rows });
+    } catch (err) {
+        console.error('❌ Error al obtener historial de mensajes:', err);
+        res.status(500).json({ success: false, error: 'Error al cargar el historial' });
+    }
+});
+
 // Arrancar el servidor unificado HTTP + WebSockets + Frontend
 server.listen(PORT, () => {
     console.log(`🚀 Servidor unificado de Sin Vueltas corriendo en el puerto ${PORT}`);
