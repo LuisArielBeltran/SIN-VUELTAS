@@ -10,7 +10,7 @@
     <script src="/socket.io/socket.io.js"></script>
     <link rel="manifest" href="/manifest.json">
     <style>
-        /* Ocultar barra de desplazamiento manteniendo la fluidez del efecto ruleta */
+        /* Ocultar barra de desplazamiento manteniendo la fluidez táctil */
         .scrollbar-none::-webkit-scrollbar {
             display: none;
         }
@@ -23,98 +23,108 @@
 <body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between">
 
     <!-- Header -->
-    <header class="p-4 bg-slate-900 border-b border-slate-800 flex justify-between items-center">
-        <h1 class="text-xl font-bold tracking-wider text-blue-500">SIN VUELTAS</h1>
-        <div id="user-info" class="text-sm text-slate-400">No autenticado</div>
+    <header class="p-3 bg-slate-900 border-b border-slate-800 flex justify-between items-center">
+        <h1 class="text-base font-bold tracking-wider text-blue-500">SIN VUELTAS</h1>
+        <div class="flex items-center space-x-2">
+            <!-- Icono pequeño de ubicación activa (oculto hasta enviar ubicación) -->
+            <div id="location-indicator" class="hidden items-center space-x-1 bg-emerald-950/80 text-emerald-400 text-[10px] px-2 py-0.5 rounded-full border border-emerald-900 shadow" title="Ubicación compartida activa">
+                <span>📍</span>
+                <span>Activa</span>
+            </div>
+            <div id="user-info" class="text-xs text-slate-400">No autenticado</div>
+        </div>
     </header>
 
     <!-- Contenedor Principal -->
-    <main class="flex-1 p-4 max-w-md mx-auto w-full flex flex-col justify-center">
+    <main class="flex-1 p-3 max-w-md mx-auto w-full flex flex-col justify-center space-y-3">
 
         <!-- Sección de Autenticación -->
-        <section id="auth-section" class="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-xl">
-            <h2 id="auth-title" class="text-lg font-semibold mb-4 text-center">Iniciar Sesión</h2>
+        <section id="auth-section" class="bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-xl">
+            <h2 id="auth-title" class="text-base font-semibold mb-3 text-center">Iniciar Sesión</h2>
             
-            <div id="error-msg" class="hidden mb-4 p-3 bg-red-950 text-red-400 text-sm rounded-lg border border-red-900"></div>
+            <div id="error-msg" class="hidden mb-3 p-2.5 bg-red-950 text-red-400 text-xs rounded-lg border border-red-900"></div>
 
-            <form id="auth-form" class="space-y-4">
+            <form id="auth-form" class="space-y-3">
                 <div id="username-field" class="hidden">
-                    <label class="block text-xs uppercase tracking-wider text-slate-400 mb-1">Nombre de usuario</label>
-                    <input type="text" id="username" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-sm focus:outline-none focus:border-blue-600">
+                    <label class="block text-[10px] uppercase tracking-wider text-slate-400 mb-1">Nombre de usuario</label>
+                    <input type="text" id="username" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs focus:outline-none focus:border-blue-600">
                 </div>
                 <div>
-                    <label class="block text-xs uppercase tracking-wider text-slate-400 mb-1">Correo Electrónico</label>
-                    <input type="email" id="email" required class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-sm focus:outline-none focus:border-blue-600">
+                    <label class="block text-[10px] uppercase tracking-wider text-slate-400 mb-1">Correo Electrónico</label>
+                    <input type="email" id="email" required class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs focus:outline-none focus:border-blue-600">
                 </div>
                 <div>
-                    <label class="block text-xs uppercase tracking-wider text-slate-400 mb-1">Contraseña</label>
-                    <input type="password" id="password" required class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-sm focus:outline-none focus:border-blue-600">
+                    <label class="block text-[10px] uppercase tracking-wider text-slate-400 mb-1">Contraseña</label>
+                    <input type="password" id="password" required class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs focus:outline-none focus:border-blue-600">
                 </div>
-                <button type="submit" id="submit-btn" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold p-3 rounded-lg transition-colors">Entrar</button>
+                <button type="submit" id="submit-btn" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold p-2.5 rounded-lg text-xs transition-colors">Entrar</button>
             </form>
 
-            <div class="mt-4 text-center">
-                <button id="toggle-auth" class="text-xs text-blue-400 hover:underline">¿No tienes cuenta? Regístrate aquí</button>
+            <div class="mt-3 text-center">
+                <button id="toggle-auth" class="text-[11px] text-blue-400 hover:underline">¿No tienes cuenta? Regístrate aquí</button>
             </div>
         </section>
 
         <!-- Sección de la Aplicación (Oculta hasta iniciar sesión) -->
-        <section id="app-section" class="hidden flex-1 flex flex-col space-y-4">
+        <section id="app-section" class="hidden flex-1 flex flex-col space-y-3">
             
-            <!-- Perfil y Avatar -->
-            <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 flex items-center space-x-4">
+            <!-- Perfil y Avatar Compacto -->
+            <div class="bg-slate-900 p-3 rounded-xl border border-slate-800 flex items-center space-x-3">
                 <div class="relative">
-                    <img id="user-avatar" src="https://via.placeholder.com/80" alt="Avatar" class="w-16 h-16 rounded-full object-cover border-2 border-blue-600">
-                    <label for="avatar-input" class="absolute bottom-0 right-0 bg-blue-600 hover:bg-blue-500 text-white p-1 rounded-full cursor-pointer text-xs">
+                    <img id="user-avatar" src="https://via.placeholder.com/80" alt="Avatar" class="w-12 h-12 rounded-full object-cover border-2 border-blue-600">
+                    <label for="avatar-input" class="absolute bottom-0 right-0 bg-blue-600 hover:bg-blue-500 text-white p-0.5 rounded-full cursor-pointer text-[10px]">
                         ✏️
                     </label>
                     <input type="file" id="avatar-input" accept="image/*" class="hidden">
                 </div>
                 <div>
-                    <h3 id="profile-username" class="text-sm font-semibold text-slate-100">Cargando...</h3>
-                    <p class="text-xs text-slate-400">Toca el lápiz para cambiar tu foto</p>
+                    <h3 id="profile-username" class="text-xs font-semibold text-slate-100">Cargando...</h3>
+                    <p class="text-[10px] text-slate-400">Toca el lápiz para cambiar foto</p>
                 </div>
             </div>
 
-            <!-- Radar de Privacidad -->
-            <div class="bg-slate-900 p-4 rounded-xl border border-slate-800">
-                <h3 class="text-sm font-semibold text-blue-400 mb-2">📡 Radar de Privacidad</h3>
-                <button id="share-location-btn" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium py-2 rounded-lg">Enviar mi ubicación actual</button>
+            <!-- Radar de Privacidad Compacto -->
+            <div id="radar-box" class="bg-slate-900 p-3 rounded-xl border border-slate-800">
+                <button id="share-location-btn" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium py-2 rounded-lg flex items-center justify-center space-x-1.5 shadow-sm">
+                    <span>📍</span>
+                    <span>Enviar mi ubicación actual</span>
+                </button>
             </div>
 
             <!-- 👥 Lista de Usuarios Conectados (Efecto Ruleta - Máximo 3 visibles) -->
-            <div class="bg-slate-900 p-4 rounded-xl border border-slate-800">
-                <div class="flex justify-between items-center mb-2">
-                    <h3 class="text-sm font-semibold text-blue-400">🟢 Conectados Cerca (Desliza)</h3>
-                    <span id="users-count" class="text-[10px] text-slate-400">0 usuarios</span>
+            <div class="bg-slate-900 p-3 rounded-xl border border-slate-800">
+                <div class="flex justify-between items-center mb-1.5">
+                    <h3 class="text-xs font-semibold text-blue-400">🟢 Conectados Cerca (Desliza)</h3>
+                    <span id="users-count" class="text-[9px] text-slate-400">0 usuarios</span>
                 </div>
                 <!-- Altura fija restringida y scroll estilo ruleta con chasquido -->
-                <div id="users-container" class="space-y-2 h-36 overflow-y-scroll snap-y snap-mandatory scrollbar-none pr-1">
-                    <p class="text-xs text-slate-500 text-center py-6">Comparte tu ubicación para ver quién está cerca...</p>
+                <div id="users-container" class="space-y-1.5 h-28 overflow-y-scroll snap-y snap-mandatory scrollbar-none pr-0.5">
+                    <p class="text-[11px] text-slate-500 text-center py-4">Comparte tu ubicación para ver quién está cerca...</p>
                 </div>
             </div>
 
-            <!-- Chat en Tiempo Real por Persona -->
-            <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 flex-1 flex flex-col">
-                <div class="flex justify-between items-center mb-2">
-                    <h3 class="text-sm font-semibold text-blue-400">💬 Chat en Tiempo Real</h3>
-                    <span id="active-chat-label" class="text-xs text-emerald-400 font-medium bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-900">Selecciona alguien arriba</span>
+            <!-- Chat en Tiempo Real Más Pequeño y Táctil -->
+            <div class="bg-slate-900 p-3 rounded-xl border border-slate-800 flex-1 flex flex-col">
+                <div class="flex justify-between items-center mb-1.5">
+                    <h3 class="text-xs font-semibold text-blue-400">💬 Chat en Tiempo Real</h3>
+                    <span id="active-chat-label" class="text-[10px] text-emerald-400 font-medium bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-900">Selecciona alguien arriba</span>
                 </div>
                 
-                <div id="chat-messages" class="flex-1 bg-slate-950 border border-slate-800 rounded-lg p-3 h-44 overflow-y-auto text-xs space-y-2 mb-3">
-                    <p class="text-slate-600 text-center italic mt-10">Toca un usuario en "Conectados Cerca" para abrir su chat.</p>
+                <!-- Rectángulo de chat más pequeño (h-28) con scroll puramente táctil sin barra visual -->
+                <div id="chat-messages" class="flex-1 bg-slate-950 border border-slate-800 rounded-lg p-2.5 h-28 overflow-y-scroll scrollbar-none text-xs space-y-2 mb-2">
+                    <p class="text-slate-600 text-center italic text-[11px] mt-6">Toca un usuario en "Conectados Cerca" para abrir su chat.</p>
                 </div>
                 
                 <div class="flex space-x-2">
-                    <input type="text" id="message-content" placeholder="Escribe un mensaje..." class="flex-1 bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs focus:outline-none focus:border-blue-500">
-                    <button id="send-msg-btn" class="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded-lg text-xs font-semibold text-white">Enviar</button>
+                    <input type="text" id="message-content" placeholder="Escribe un mensaje..." class="flex-1 bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs focus:outline-none focus:border-blue-500">
+                    <button id="send-msg-btn" class="bg-blue-600 hover:bg-blue-500 px-3 py-2 rounded-lg text-xs font-semibold text-white">Enviar</button>
                 </div>
             </div>
         </section>
 
     </main>
 
-    <footer class="p-4 text-center text-xs text-slate-600 border-t border-slate-900">
+    <footer class="p-2 text-center text-[10px] text-slate-600 border-t border-slate-900">
         Sin Vueltas &copy; 2026 - Seguro y Descentralizado
     </footer>
 
@@ -124,13 +134,12 @@
         let token = localStorage.getItem('token') || null;
         let socket = null;
 
-        // Estado del Chat y Conversaciones por Usuario
-        let usersMap = {}; // ID -> Nombre de usuario
-        let userAvatars = {}; // ID -> Avatar
-        let chats = {}; // ID_Usuario -> Array de mensajes
+        let usersMap = {}; 
+        let userAvatars = {}; 
+        let chats = {}; 
         let activeReceiverId = null;
         let activeReceiverName = '';
-        let currentUserId = null; // Guardará tu propio ID obtenido en el perfil
+        let currentUserId = null; 
 
         const authSection = document.getElementById('auth-section');
         const appSection = document.getElementById('app-section');
@@ -214,7 +223,7 @@
             if (!file) return;
 
             if (file.size > 500 * 1024) {
-                alert('La imagen es demasiado pesada. Elige una menor a 500 KB.');
+                alert('La imagen es demasiado pesada. Menor a 500 KB.');
                 return;
             }
 
@@ -254,7 +263,6 @@
                 console.error('Error de conexión socket:', err.message);
             });
 
-            // Recibir mensajes en tiempo real y organizarlos por usuario
             socket.on('new_message', (msg) => {
                 const senderId = msg.sender_id;
                 const senderName = usersMap[senderId] || `Usuario #${senderId}`;
@@ -268,6 +276,7 @@
             });
         }
 
+        // Compartir ubicación y mostrar el icono superior compacto
         document.getElementById('share-location-btn').addEventListener('click', () => {
             if (!navigator.geolocation) {
                 alert('La geolocalización no está soportada por tu navegador');
@@ -289,6 +298,10 @@
                     });
                     const data = await res.json();
                     if(data.success) {
+                        // Mostrar icono pequeño arriba y ocultar el botón grande para ganar espacio
+                        document.getElementById('location-indicator').classList.remove('hidden');
+                        document.getElementById('location-indicator').classList.add('flex');
+                        document.getElementById('radar-box').style.display = 'none';
                         loadNearby();
                     }
                 } catch (e) {
@@ -319,7 +332,7 @@
             container.innerHTML = '';
 
             if (!users || users.length === 0) {
-                container.innerHTML = '<p class="text-xs text-slate-500 text-center py-6">No hay usuarios cercanos.</p>';
+                container.innerHTML = '<p class="text-[11px] text-slate-500 text-center py-4">No hay usuarios cercanos.</p>';
                 return;
             }
 
@@ -328,20 +341,20 @@
                 userAvatars[user.id] = user.profile_image || user.avatar || 'https://via.placeholder.com/80';
 
                 const userElement = document.createElement('div');
-                userElement.className = 'flex items-center justify-between p-2.5 bg-slate-950 hover:bg-slate-800 rounded-lg cursor-pointer transition border border-slate-800 snap-start';
+                userElement.className = 'flex items-center justify-between p-2 bg-slate-950 hover:bg-slate-800 rounded-lg cursor-pointer transition border border-slate-800 snap-start';
                 
                 const avatarSrc = userAvatars[user.id];
                 const distancia = user.distance_km ? `(${user.distance_km.toFixed(2)} km)` : '';
 
                 userElement.innerHTML = `
-                    <div class="flex items-center space-x-3">
-                        <img src="${avatarSrc}" alt="${user.username}" class="w-8 h-8 rounded-full object-cover border border-blue-500">
+                    <div class="flex items-center space-x-2.5">
+                        <img src="${avatarSrc}" alt="${user.username}" class="w-7 h-7 rounded-full object-cover border border-blue-500">
                         <div>
-                            <h4 class="text-xs font-semibold text-slate-200">${user.username}</h4>
-                            <span class="text-[10px] text-emerald-400">● En línea ${distancia}</span>
+                            <h4 class="text-[11px] font-semibold text-slate-200">${user.username}</h4>
+                            <span class="text-[9px] text-emerald-400">● En línea ${distancia}</span>
                         </div>
                     </div>
-                    <span class="text-[10px] bg-blue-900 text-blue-300 px-2.5 py-1 rounded-full font-medium">Chatear</span>
+                    <span class="text-[9px] bg-blue-900 text-blue-300 px-2 py-0.5 rounded-full font-medium">Chatear</span>
                 `;
 
                 userElement.addEventListener('click', () => {
@@ -352,14 +365,12 @@
             });
         }
 
-        // Seleccionar destinatario, pedir historial a la BD y abrir chat individual
         async function seleccionarDestinatario(userId, username) {
             activeReceiverId = userId;
             activeReceiverName = username;
 
             document.getElementById('active-chat-label').textContent = `Hablando con: ${username}`;
             
-            // Consultar el historial persistente de la base de datos (hasta 6 meses)
             try {
                 const res = await fetch(`/api/messages/${userId}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
@@ -387,26 +398,25 @@
             document.getElementById('message-content').focus();
         }
 
-        // Renderizar mensajes del diálogo activo
         function renderChatMessages() {
             const box = document.getElementById('chat-messages');
             box.innerHTML = '';
 
             const messages = chats[activeReceiverId] || [];
             if (messages.length === 0) {
-                box.innerHTML = `<p class="text-slate-500 text-center italic text-xs mt-12">Inicia la conversación enviando un mensaje a ${activeReceiverName}.</p>`;
+                box.innerHTML = `<p class="text-slate-500 text-center italic text-[11px] mt-6">Inicia conversación con ${activeReceiverName}.</p>`;
                 return;
             }
 
             messages.forEach(msg => {
                 const isMe = msg.sender === 'me';
                 const align = isMe ? 'text-right' : 'text-left';
-                const bg = isMe ? 'bg-blue-950 border-blue-900 text-blue-200 ml-8' : 'bg-slate-900 border-slate-800 text-slate-200 mr-8';
+                const bg = isMe ? 'bg-blue-950 border-blue-900 text-blue-200 ml-6' : 'bg-slate-900 border-slate-800 text-slate-200 mr-6';
                 
                 box.innerHTML += `
                     <div class="${align}">
-                        <div class="inline-block p-2 rounded-lg border text-xs max-w-[85%] text-left ${bg}">
-                            <div class="text-[9px] text-slate-400 mb-0.5 font-semibold">${isMe ? 'Tú' : activeReceiverName}</div>
+                        <div class="inline-block p-2 rounded-lg border text-[11px] max-w-[85%] text-left ${bg}">
+                            <div class="text-[8px] text-slate-400 mb-0.5 font-semibold">${isMe ? 'Tú' : activeReceiverName}</div>
                             <div>${msg.content}</div>
                         </div>
                     </div>
@@ -415,7 +425,6 @@
             box.scrollTop = box.scrollHeight;
         }
 
-        // Enviar mensaje por socket guardando en la conversación de esa persona
         document.getElementById('send-msg-btn').addEventListener('click', () => {
             if (!activeReceiverId) {
                 alert('Selecciona un usuario de la lista superior para chatear.');
