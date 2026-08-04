@@ -5,8 +5,9 @@ const getMyProfile = async (req, res) => {
     const userId = req.user.id;
 
     try {
+        // Aseguramos que 'is_premium' se incluya en el SELECT
         const query = `
-            SELECT id, email, username, profile_image, latitude, longitude, created_at
+            SELECT id, email, username, profile_image, latitude, longitude, is_premium, created_at
             FROM users
             WHERE id = $1;
         `;
@@ -32,12 +33,13 @@ const updateProfile = async (req, res) => {
     const { username, profile_image } = req.body;
 
     try {
+        // Aseguramos que 'is_premium' también se devuelva en el RETURNING
         const query = `
             UPDATE users
             SET username = COALESCE($1, username),
                 profile_image = COALESCE($2, profile_image)
             WHERE id = $3
-            RETURNING id, email, username, profile_image;
+            RETURNING id, email, username, profile_image, is_premium;
         `;
         const { rows } = await db.query(query, [username, profile_image, userId]);
 
