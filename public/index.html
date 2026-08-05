@@ -77,6 +77,11 @@
                     <div>
                         <h3 id="profile-username" class="text-xs font-semibold text-slate-100 flex items-center">Cargando...</h3>
                         <p id="profile-plan" class="text-[10px] text-slate-400">Plan Gratuito</p>
+                        <div class="mt-1" id="verification-badge-container">
+                            <button id="verify-btn" onclick="toggleVerifyModal()" class="text-[9px] bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/50 px-2 py-0.5 rounded font-semibold transition">
+                                🛡️ Verificar Identidad 🪙
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -131,6 +136,35 @@
         Sin Vueltas &copy; 2026 - Seguro y Descentralizado
     </footer>
 
+    <div id="verify-modal" class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl max-w-sm w-full space-y-3 shadow-2xl">
+            <div class="flex justify-between items-center">
+                <h3 class="text-xs font-bold text-amber-400">Verificación de Identidad 🪙</h3>
+                <button onclick="toggleVerifyModal()" class="text-slate-400 hover:text-white text-xs">✕</button>
+            </div>
+            <p class="text-[10px] text-slate-400">Sube fotos claras del DNI (frente y dorso) y una selfie. Tu insignia dorada se activará de inmediato.</p>
+            
+            <div class="space-y-2 text-[10px]">
+                <div>
+                    <label class="block text-slate-300 mb-1">1. DNI Frente</label>
+                    <input type="file" id="dni-front-input" accept="image/*" class="w-full bg-slate-950 border border-slate-800 p-1.5 rounded text-slate-300 text-[10px]">
+                </div>
+                <div>
+                    <label class="block text-slate-300 mb-1">2. DNI Dorso</label>
+                    <input type="file" id="dni-back-input" accept="image/*" class="w-full bg-slate-950 border border-slate-800 p-1.5 rounded text-slate-300 text-[10px]">
+                </div>
+                <div>
+                    <label class="block text-slate-300 mb-1">3. Selfie en vivo</label>
+                    <input type="file" id="selfie-input" accept="image/*" class="w-full bg-slate-950 border border-slate-800 p-1.5 rounded text-slate-300 text-[10px]">
+                </div>
+            </div>
+
+            <button onclick="submitVerificationData()" class="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-2 rounded-lg text-xs transition">
+                Enviar y Verificar al Instante
+            </button>
+        </div>
+    </div>
+
     <script>
         let isRegistering = false;
         let token = localStorage.getItem('token') || null;
@@ -143,7 +177,8 @@
         let activeReceiverId = null;
         let activeReceiverName = '';
         let currentUserId = null; 
-        let isCurrentUserPremium = false; // NUEVO: Variable de estado premium
+        let isCurrentUserPremium = false; 
+        let isUserVerified = false; // NUEVO
 
         const authSection = document.getElementById('auth-section');
         const appSection = document.getElementById('app-section');
@@ -211,11 +246,13 @@
                 const data = await res.json();
                 if (data.success) {
                     currentUserId = data.user.id;
-                    isCurrentUserPremium = data.user.is_premium || false; // NUEVO
+                    isCurrentUserPremium = data.user.is_premium || false; 
+                    isUserVerified = data.user.is_verified || false; // NUEVO
                     
-                    // NUEVO: Lógica visual Premium para el perfil
                     const crownHTML = isCurrentUserPremium ? `<span class="text-amber-400 ml-1 drop-shadow-md text-sm" title="Cuenta Premium">👑</span>` : '';
-                    document.getElementById('profile-username').innerHTML = `${data.user.username} ${crownHTML}`;
+                    const verifiedHTML = isUserVerified ? `<span class="text-xs ml-1" title="Usuario Verificado">🪙</span>` : '';
+                    
+                    document.getElementById('profile-username').innerHTML = `${data.user.username} ${crownHTML} ${verifiedHTML}`;
                     
                     document.getElementById('profile-plan').innerHTML = isCurrentUserPremium ? `<span class="text-amber-400 font-bold">Plan Premium ⚡</span>` : `Plan Gratuito`;
                     userInfo.innerHTML = `ID: ${currentUserId} ${isCurrentUserPremium ? '<span class="text-amber-400 font-bold ml-1">PRO</span>' : ''}`;
@@ -227,9 +264,97 @@
                     if (data.user.profile_image) {
                         document.getElementById('user-avatar').src = data.user.profile_image;
                     }
+
+                    // Actualizar el estado visual del botón / insignia de verificación
+                    const verifyContainer = document.getElementById('verification-badge-container');
+                    if (isUserVerified) {
+                        verifyContainer.innerHTML = `<span class="text-[9px] text-emerald-400 font-bold bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-900 inline-block">✓ Verificado 🪙</span>`;
+                    } else {
+                        verifyContainer.innerHTML = `<button id="verify-btn" onclick="toggleVerifyModal()" class="text-[9px] bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/50 px-2 py-0.5 rounded font-semibold transition">🛡️ Verificar Identidad 🪙</button>`;
+                    }
                 }
             } catch (e) {
                 console.error('Error al cargar perfil:', e);
+            }
+        }
+
+        // FUNCIONES DE VERIFICACIÓN Y COMPRESIÓN DE IMÁGENES
+        function toggleVerifyModal() {
+            const modal = document.getElementById('verify-modal');
+            modal.classList.toggle('hidden');
+        }
+
+        function compressImage(file) {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        const MAX_WIDTH = 800;
+                        const MAX_HEIGHT = 800;
+                        let width = img.width;
+                        let height = img.height;
+
+                        if (width > height) {
+                            if (width > MAX_WIDTH) {
+                                height *= MAX_WIDTH / width;
+                                width = MAX_WIDTH;
+                            }
+                        } else {
+                            if (height > MAX_HEIGHT) {
+                                width *= MAX_HEIGHT / height;
+                                height = MAX_HEIGHT;
+                            }
+                        }
+
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        
+                        resolve(canvas.toDataURL('image/jpeg', 0.75));
+                    };
+                    img.src = event.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        async function submitVerificationData() {
+            const frontFile = document.getElementById('dni-front-input').files[0];
+            const backFile = document.getElementById('dni-back-input').files[0];
+            const selfieFile = document.getElementById('selfie-input').files[0];
+
+            if (!frontFile || !backFile || !selfieFile) {
+                alert('Por favor selecciona las 3 imágenes requeridas.');
+                return;
+            }
+
+            try {
+                alert('Comprimiendo y procesando imágenes de forma segura...');
+                const dni_front = await compressImage(frontFile);
+                const dni_back = await compressImage(backFile);
+                const selfie = await compressImage(selfieFile);
+
+                const res = await fetch('/api/verification/submit', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ dni_front, dni_back, selfie })
+                });
+
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Error al verificar');
+
+                alert(data.message);
+                toggleVerifyModal();
+                loadProfile(); 
+                loadNearby();  
+            } catch (err) {
+                alert('Error: ' + err.message);
             }
         }
 
@@ -277,11 +402,9 @@
             document.addEventListener('visibilitychange', () => {
                 if (!socket) return;
                 if (document.visibilityState === 'visible') {
-                    // El usuario volvió a SIN VUELTAS
                     socket.emit('change_status', 'online');
-                    loadNearby(); // Refrescar radar al instante
+                    loadNearby(); 
                 } else {
-                    // El usuario minimizó la app o abrió otra
                     socket.emit('change_status', 'connected');
                 }
             });
@@ -352,7 +475,6 @@
                 
                 document.getElementById('users-count').textContent = `${data.count || 0} usuarios`;
                 
-                // NUEVO: Actualizar texto del radar basado en el plan
                 document.getElementById('radar-info').innerHTML = data.isPremium 
                     ? `<span class="text-amber-400 font-semibold">Radar Ciudad: 50 km</span>` 
                     : `Radio: 2 km (Mejora tu plan)`;
@@ -388,7 +510,6 @@
                 const distancia = user.distance_km ? `(${user.distance_km.toFixed(2)} km)` : '';
 
                 let statusBadge = '';
-                // NUEVO: Agregar borde dorado dinámico si el usuario escaneado es premium
                 let avatarClass = `w-7 h-7 rounded-full object-cover border ${user.is_premium ? 'premium-border' : 'border-blue-500'}`;
 
                 if (user.status === 'online') {
@@ -400,15 +521,15 @@
                     avatarClass += ' grayscale-avatar';
                 }
 
-                // NUEVO: Corona para el nombre en la ruleta
                 const crownIcon = user.is_premium ? `<span class="text-[10px] ml-1" title="Premium">👑</span>` : '';
+                const verifiedIcon = user.is_verified ? `<span class="text-[9px] ml-1" title="Usuario Verificado">🪙</span>` : '';
                 const notificationIndicator = hasUnread ? `<span class="w-2 h-2 rounded-full bg-amber-400 animate-ping inline-block mr-1"></span>` : '';
 
                 userElement.innerHTML = `
                     <div class="flex items-center space-x-2.5">
                         <img src="${avatarSrc}" alt="${user.username}" class="${avatarClass}">
                         <div>
-                            <h4 class="text-[11px] font-semibold text-slate-200 flex items-center">${notificationIndicator}${user.username} ${crownIcon}</h4>
+                            <h4 class="text-[11px] font-semibold text-slate-200 flex items-center">${notificationIndicator}${user.username} ${crownIcon} ${verifiedIcon}</h4>
                             ${statusBadge}
                         </div>
                     </div>
