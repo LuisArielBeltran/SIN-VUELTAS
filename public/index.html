@@ -15,7 +15,7 @@
             filter: grayscale(100%);
             opacity: 0.6;
         }
-        /* NUEVO: Brillo dorado para avatares premium */
+        /* Brillo dorado para avatares premium */
         .premium-border {
             border-color: #fbbf24 !important; 
             box-shadow: 0 0 8px rgba(251, 191, 36, 0.5); 
@@ -136,26 +136,27 @@
         Sin Vueltas &copy; 2026 - Seguro y Descentralizado
     </footer>
 
+    <!-- MODAL DE VERIFICACIÓN ACTUALIZADO (Bloqueo de galería) -->
     <div id="verify-modal" class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
         <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl max-w-sm w-full space-y-3 shadow-2xl">
             <div class="flex justify-between items-center">
                 <h3 class="text-xs font-bold text-amber-400">Verificación de Identidad 🪙</h3>
                 <button onclick="toggleVerifyModal()" class="text-slate-400 hover:text-white text-xs">✕</button>
             </div>
-            <p class="text-[10px] text-slate-400">Sube fotos claras del DNI (frente y dorso) y una selfie. Tu insignia dorada se activará de inmediato.</p>
+            <p class="text-[10px] text-slate-400">Toma fotos claras del DNI (frente y dorso) y una selfie en vivo. Tu insignia se activará al instante.</p>
             
             <div class="space-y-2 text-[10px]">
                 <div>
-                    <label class="block text-slate-300 mb-1">1. DNI Frente</label>
-                    <input type="file" id="dni-front-input" accept="image/*" class="w-full bg-slate-950 border border-slate-800 p-1.5 rounded text-slate-300 text-[10px]">
+                    <label class="block text-slate-300 mb-1">1. DNI Frente (Cámara Trasera)</label>
+                    <input type="file" id="dni-front-input" accept="image/jpeg, image/png, image/webp" capture="environment" class="w-full bg-slate-950 border border-slate-800 p-1.5 rounded text-slate-300 text-[10px]">
                 </div>
                 <div>
-                    <label class="block text-slate-300 mb-1">2. DNI Dorso</label>
-                    <input type="file" id="dni-back-input" accept="image/*" class="w-full bg-slate-950 border border-slate-800 p-1.5 rounded text-slate-300 text-[10px]">
+                    <label class="block text-slate-300 mb-1">2. DNI Dorso (Cámara Trasera)</label>
+                    <input type="file" id="dni-back-input" accept="image/jpeg, image/png, image/webp" capture="environment" class="w-full bg-slate-950 border border-slate-800 p-1.5 rounded text-slate-300 text-[10px]">
                 </div>
                 <div>
-                    <label class="block text-slate-300 mb-1">3. Selfie en vivo</label>
-                    <input type="file" id="selfie-input" accept="image/*" class="w-full bg-slate-950 border border-slate-800 p-1.5 rounded text-slate-300 text-[10px]">
+                    <label class="block text-slate-300 mb-1">3. Selfie en vivo (Cámara Frontal)</label>
+                    <input type="file" id="selfie-input" accept="image/jpeg, image/png, image/webp" capture="user" class="w-full bg-slate-950 border border-slate-800 p-1.5 rounded text-slate-300 text-[10px]">
                 </div>
             </div>
 
@@ -178,7 +179,7 @@
         let activeReceiverName = '';
         let currentUserId = null; 
         let isCurrentUserPremium = false; 
-        let isUserVerified = false; // NUEVO
+        let isUserVerified = false; 
 
         const authSection = document.getElementById('auth-section');
         const appSection = document.getElementById('app-section');
@@ -247,7 +248,7 @@
                 if (data.success) {
                     currentUserId = data.user.id;
                     isCurrentUserPremium = data.user.is_premium || false; 
-                    isUserVerified = data.user.is_verified || false; // NUEVO
+                    isUserVerified = data.user.is_verified || false; 
                     
                     const crownHTML = isCurrentUserPremium ? `<span class="text-amber-400 ml-1 drop-shadow-md text-sm" title="Cuenta Premium">👑</span>` : '';
                     const verifiedHTML = isUserVerified ? `<span class="text-xs ml-1" title="Usuario Verificado">🪙</span>` : '';
@@ -265,7 +266,6 @@
                         document.getElementById('user-avatar').src = data.user.profile_image;
                     }
 
-                    // Actualizar el estado visual del botón / insignia de verificación
                     const verifyContainer = document.getElementById('verification-badge-container');
                     if (isUserVerified) {
                         verifyContainer.innerHTML = `<span class="text-[9px] text-emerald-400 font-bold bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-900 inline-block">✓ Verificado 🪙</span>`;
@@ -278,12 +278,12 @@
             }
         }
 
-        // FUNCIONES DE VERIFICACIÓN Y COMPRESIÓN DE IMÁGENES
         function toggleVerifyModal() {
             const modal = document.getElementById('verify-modal');
             modal.classList.toggle('hidden');
         }
 
+        // COMPRESIÓN EXTREMA ACTUALIZADA (Máximo 600px y calidad JPEG 60%)
         function compressImage(file) {
             return new Promise((resolve) => {
                 const reader = new FileReader();
@@ -291,8 +291,8 @@
                     const img = new Image();
                     img.onload = () => {
                         const canvas = document.createElement('canvas');
-                        const MAX_WIDTH = 800;
-                        const MAX_HEIGHT = 800;
+                        const MAX_WIDTH = 600;
+                        const MAX_HEIGHT = 600;
                         let width = img.width;
                         let height = img.height;
 
@@ -313,7 +313,8 @@
                         const ctx = canvas.getContext('2d');
                         ctx.drawImage(img, 0, 0, width, height);
                         
-                        resolve(canvas.toDataURL('image/jpeg', 0.75));
+                        // Conversión a JPEG con 60% de calidad para lograr el menor peso posible
+                        resolve(canvas.toDataURL('image/jpeg', 0.60));
                     };
                     img.src = event.target.result;
                 };
@@ -327,12 +328,12 @@
             const selfieFile = document.getElementById('selfie-input').files[0];
 
             if (!frontFile || !backFile || !selfieFile) {
-                alert('Por favor selecciona las 3 imágenes requeridas.');
+                alert('Por favor toma las 3 fotos en tiempo real requeridas.');
                 return;
             }
 
             try {
-                alert('Comprimiendo y procesando imágenes de forma segura...');
+                alert('Comprimiendo imágenes para asegurar carga ultrarrápida...');
                 const dni_front = await compressImage(frontFile);
                 const dni_back = await compressImage(backFile);
                 const selfie = await compressImage(selfieFile);
@@ -415,8 +416,7 @@
 
             socket.on('new_message', (msg) => {
                 const senderId = msg.sender_id;
-                const senderName = usersMap[senderId] || `Usuario #${senderId}`;
-
+                
                 if (!chats[senderId]) chats[senderId] = [];
                 chats[senderId].push({ 
                     sender: 'them', 
@@ -567,7 +567,7 @@
                             content: msg.content,
                             type: msg.type || 'text',
                             created_at: msg.created_at,
-                            viewed: msg.viewed || false // Agregamos la propiedad internamente
+                            viewed: msg.viewed || false 
                         };
                     });
                 } else {
@@ -607,7 +607,6 @@
 
             let lastLabel = '';
 
-            // MODIFICACIÓN CLAVE: Agregamos el "index" para poder ubicar exactamente qué mensaje es el efímero
             messages.forEach((msg, index) => {
                 const currentLabel = getTemporalLabel(msg.created_at || new Date());
                 
@@ -626,7 +625,6 @@
                 
                 let contentHtml = '';
                 
-                // MODIFICACIÓN CLAVE: Chequeo de foto efímera y de su estado "viewed"
                 if (msg.type === 'ephemeral_photo') {
                     if (msg.viewed) {
                         contentHtml = `
@@ -638,7 +636,6 @@
                     } else if (isMe) {
                         contentHtml = `<span class="italic text-[10px] text-blue-300">📸 [Foto efímera enviada]</span>`;
                     } else {
-                        // Aquí pasamos el "index" en lugar del contenido HTML directo
                         contentHtml = `
                             <div class="cursor-pointer bg-slate-950 p-2 rounded border border-blue-600 text-center shadow-lg" onclick="verFotoEfimera(${index})">
                                 <span class="text-[10px] text-blue-400 font-bold flex items-center justify-center space-x-1">
@@ -649,7 +646,6 @@
                         `;
                     }
                 } else {
-                    // Agregué break-words por si un texto normal llegara a ser muy largo y deformara la caja
                     contentHtml = `<div class="break-words">${msg.content}</div>`;
                 }
 
@@ -665,14 +661,11 @@
             box.scrollTop = box.scrollHeight;
         }
 
-        // MODIFICACIÓN CLAVE: Función completamente reescrita para destruir la foto en memoria
         window.verFotoEfimera = function(msgIndex) {
             const msg = chats[activeReceiverId][msgIndex];
             const photoUrl = msg.content;
             
-            // Marcar el mensaje como visto
             msg.viewed = true;
-            // ELIMINAR EL CONTENIDO BASE64 DEFINITIVAMENTE DE LA MEMORIA DEL NAVEGADOR
             msg.content = ''; 
             
             const modal = document.createElement('div');
@@ -686,7 +679,6 @@
             `;
             document.body.appendChild(modal);
             
-            // Volvemos a dibujar el chat. Como msg.viewed ahora es TRUE, se dibujará la caja "Foto vista" bonita.
             renderChatMessages();
         };
 
