@@ -1,8 +1,37 @@
+const db = require('../config/db');
+
+// 1. Actualizar la geolocalización del usuario
+const updateLocation = async (req, res) => {
+    const userId = req.user.id;
+    const { latitude, longitude } = req.body;
+
+    if (latitude === undefined || longitude === undefined) {
+        return res.status(400).json({ error: 'Latitud y longitud son obligatorias.' });
+    }
+
+    try {
+        const query = `
+            UPDATE users 
+            SET latitude = $1, longitude = $2, last_location_update = NOW(), status = 'online'
+            WHERE id = $3
+        `;
+        await db.query(query, [latitude, longitude, userId]);
+
+        res.json({
+            success: true,
+            message: 'Ubicación actualizada correctamente.'
+        });
+    } catch (error) {
+        console.error('Error al actualizar la ubicación:', error);
+        res.status(500).json({ error: 'Error interno al actualizar la ubicación.' });
+    }
+};
+
+// 2. Buscar usuarios cercanos en el radar
 const getNearbyUsers = async (req, res) => {
     const userId = req.user.id;
 
     try {
-        // Consultar ubicación, estado premium y fecha de expiración de prueba del usuario
         const userQuery = await db.query(
             'SELECT latitude, longitude, is_premium, trial_ends_at FROM users WHERE id = $1', 
             [userId]
@@ -51,4 +80,9 @@ const getNearbyUsers = async (req, res) => {
         console.error('Error en el radar geográfico:', error);
         res.status(500).json({ error: 'Error al escanear el radar cercano.' });
     }
+};
+
+module.exports = {
+    updateLocation,
+    getNearbyUsers
 };
