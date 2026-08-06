@@ -1,6 +1,10 @@
 const db = require('../config/db');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { Resend } = require('resend');
+
+// Inicializar Resend con tu llave (La pondremos en las variables de entorno de Railway)
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 // 1. Registro de usuario
 const register = async (req, res) => {
@@ -28,6 +32,28 @@ const register = async (req, res) => {
             RETURNING id, email, username, created_at;
         `;
         const { rows } = await db.query(query, [email, passwordHash, username]);
+
+        // --- NUEVO: Enviar correo de bienvenida con Resend ---
+        try {
+            await resend.emails.send({
+                from: 'Sin Vueltas <onboarding@resend.dev>', // Cambia esto cuando verifiques tu propio dominio en Resend
+                to: email,
+                subject: '¡Bienvenido a Sin Vueltas! 🚀',
+                html: `
+                    <div style="font-family: Arial, sans-serif; padding: 20px; background-color: #090d16; color: #f8fafc; border-radius: 10px;">
+                        <h2 style="color: #3b82f6;">Hola, ${username}</h2>
+                        <p>Tu cuenta en <strong>Sin Vueltas</strong> ha sido creada con éxito.</p>
+                        <p>Recuerda que para acceder a todas las funciones y al chat sin límites, deberás validar tu identidad desde la aplicación.</p>
+                        <br>
+                        <p style="font-size: 12px; color: #64748b;">El equipo de Sin Vueltas.</p>
+                    </div>
+                `
+            });
+            console.log(`✉️ Correo de bienvenida enviado a: ${email}`);
+        } catch (emailError) {
+            console.error('⚠️ Error al enviar el correo con Resend:', emailError);
+            // No detenemos el registro si el correo falla, simplemente lo registramos en consola
+        }
 
         res.status(201).json({
             success: true,
@@ -63,15 +89,6 @@ const login = async (req, res) => {
             return res.status(401).json({ error: 'Credenciales inválidas.' });
         }
 
-        // ==========================================
-        // 🌟 TRUCO TEMPORAL PARA HACERTE PREMIUM 🌟
-        // (Reemplaza 'tu_correo_de_prueba@email.com' por tu correo real)
-        // ==========================================
-        if (email === 'tu_correo_de_prueba@email.com') {
-            await db.query('UPDATE users SET is_premium = TRUE WHERE email = $1', [email]);
-            user.is_premium = true; 
-        }
-
         // Generar Token JWT (expira en 7 días)
         const token = jwt.sign(
             { id: user.id, email: user.email },
@@ -86,8 +103,7 @@ const login = async (req, res) => {
             user: {
                 id: user.id,
                 email: user.email,
-                username: user.username,
-                is_premium: user.is_premium || false
+                username: user.username
             }
         });
     } catch (error) {
