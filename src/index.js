@@ -4,6 +4,8 @@ const { Server } = require('socket.io');
 const cors = require('cors');
 const path = require('path');
 const jwt = require('jsonwebtoken');
+const securityRoutes = require('./routes/securityRoutes');
+
 require('dotenv').config();
 
 // Importar conexión a la base de datos
@@ -55,7 +57,9 @@ app.use('/api/auth', authRoutes);
 app.use('/api/radar', radarRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/chat', chatRoutes);
-app.use('/api/verification', verificationRoutes); // NUEVO
+app.use('/api/verification', verificationRoutes);
+app.use('/api/security', securityRoutes);
+app.use('/api/verification', securityRoutes);
 
 // Endpoint para recuperar el historial de chat entre el usuario actual y un destinatario
 app.get('/api/messages/:recipientId', authenticateToken, async (req, res) => {
