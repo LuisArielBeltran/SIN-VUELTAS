@@ -1,71 +1,29 @@
-const db = require('../config/db');
-
-// Función auxiliar para agregar ruido de privacidad (aprox 100 a 200 metros)
-const addPrivacyNoise = (lat, lon) => {
-    const offset = 0.0012; // Radio de desfase controlado (~150 metros)
-    const randomLat = (Math.random() - 0.5) * offset;
-    const randomLon = (Math.random() - 0.5) * offset;
-    return {
-        lat: lat + randomLat,
-        lon: lon + randomLon
-    };
-};
-
-// 1. Actualizar ubicación del usuario con ruido
-const updateLocation = async (req, res) => {
-    const userId = req.user.id;
-    const { latitude, longitude } = req.body;
-
-    if (latitude === undefined || longitude === undefined) {
-        return res.status(400).json({ error: 'Latitud y longitud son requeridas.' });
-    }
-
-    try {
-        const noisyCoords = addPrivacyNoise(latitude, longitude);
-
-        const query = `
-            UPDATE users 
-            SET latitude = $1,
-                longitude = $2,
-                last_location_update = NOW()
-            WHERE id = $3
-            RETURNING id, last_location_update;
-        `;
-        
-        await db.query(query, [noisyCoords.lat, noisyCoords.lon, userId]);
-
-        res.json({ 
-            success: true, 
-            message: 'Ubicación actualizada con éxito bajo parámetros de privacidad.' 
-        });
-    } catch (error) {
-        console.error('Error al actualizar ubicación:', error);
-        res.status(500).json({ error: 'Error interno del servidor al procesar la ubicación.' });
-    }
-};
-
-// 2. Buscar usuarios cercanos en el radar usando la fórmula de Haversine en SQL puro
 const getNearbyUsers = async (req, res) => {
     const userId = req.user.id;
-    const { radiusInKm = 5 } = req.query; // Radio por defecto: 5 km
 
     try {
-        // Primero obtenemos la ubicación del usuario actual
-        const userQuery = await db.query('SELECT latitude, longitude FROM users WHERE id = $1', [userId]);
+        // Consultar ubicación, estado premium y fecha de expiración de prueba del usuario
+        const userQuery = await db.query(
+            'SELECT latitude, longitude, is_premium, trial_ends_at FROM users WHERE id = $1', 
+            [userId]
+        );
         
         if (userQuery.rows.length === 0 || userQuery.rows[0].latitude === null) {
             return res.status(400).json({ error: 'El usuario no tiene una ubicación registrada.' });
         }
 
-        const userLat = userQuery.rows[0].latitude;
-        const userLon = userQuery.rows[0].longitude;
+        const { latitude: userLat, longitude: userLon, is_premium, trial_ends_at } = userQuery.rows[0];
 
-        // Consulta usando Haversine (Radio de la Tierra = 6371 km)
-        // NOTA: Se agregó 'status' en los dos SELECT para que el frontend pueda pintar los colores
+        // EVALUACIÓN DE LA REGLA COMERCIAL:
+        // Es 50km si pagó Premium O si la fecha actual es menor a la fecha de fin de prueba. Si no, 2km.
+        const now = new Date();
+        const isInTrial = trial_ends_at && new Date(trial_ends_at) > now;
+        const radiusInKm = (is_premium || isInTrial) ? 50 : 2;
+
         const query = `
-            SELECT id, username, profile_image, status, latitude, longitude, distance_km
+            SELECT id, username, profile_image, status, latitude, longitude, is_premium, is_verified, distance_km
             FROM (
-                SELECT id, username, profile_image, status, latitude, longitude,
+                SELECT id, username, profile_image, status, latitude, longitude, is_premium, is_verified,
                     (6371 * acos(
                         cos(radians($1)) * cos(radians(latitude)) * cos(radians(longitude) - radians($2)) + 
                         sin(radians($1)) * sin(radians(latitude))
@@ -80,10 +38,12 @@ const getNearbyUsers = async (req, res) => {
             ORDER BY distance_km ASC;
         `;
 
-        const { rows } = await db.query(query, [userLat, userLon, userId, parseFloat(radiusInKm)]);
+        const { rows } = await db.query(query, [userLat, userLon, userId, radiusInKm]);
 
         res.json({
             success: true,
+            isTrialActive: isInTrial,
+            radiusUsed: radiusInKm,
             count: rows.length,
             users: rows
         });
@@ -91,9 +51,4 @@ const getNearbyUsers = async (req, res) => {
         console.error('Error en el radar geográfico:', error);
         res.status(500).json({ error: 'Error al escanear el radar cercano.' });
     }
-};
-
-module.exports = {
-    updateLocation,
-    getNearbyUsers
 };
