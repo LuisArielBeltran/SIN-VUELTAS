@@ -786,5 +786,57 @@
             });
         }
     </script>
+
+    <script>
+  // Función que se ejecuta cuando Google carga correctamente
+  window.onload = function () {
+    google.accounts.id.initialize({
+      client_id: "TU_CLIENT_ID_DE_GOOGLE.apps.googleusercontent.com", // ⚠️ Reemplaza esto con tu Client ID real de Google Console
+      callback: handleCredentialResponse
+    });
+
+    google.accounts.id.renderButton(
+      document.getElementById("buttonDiv"),
+      { theme: "outline", size: "large", width: "100%", text: "continue_with", shape: "pill" } // Personalización visual
+    );
+  };
+
+  // Función que procesa el token que devuelve Google cuando el usuario se loguea
+  async function handleCredentialResponse(response) {
+    const credential = response.credential; // Este es el JWT que emite Google
+
+    try {
+      const res = await fetch('/api/auth/google', { // Asegúrate de que coincida con tu ruta en el backend
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ credential })
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        // Guardamos el token JWT de tu app en localStorage
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+
+        // Redirigir al usuario al Radar principal o dashboard
+        window.location.href = '/radar.html'; // O la vista principal de tu app
+      } else {
+        alert('Error al iniciar sesión con Google: ' + data.error);
+      }
+    } catch (error) {
+        console.error('Error de red al conectar con el servidor:', error);
+        alert('No se pudo conectar con el servidor de autenticación.');
+    }
+  }
+</script>
+
+
+
+
+
+    
 </body>
 </html>
