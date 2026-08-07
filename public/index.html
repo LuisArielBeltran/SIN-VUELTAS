@@ -429,7 +429,7 @@
 
             socket.on('new_message', (msg) => {
                 const senderId = msg.sender_id;
-                
+    
                 if (!chats[senderId]) chats[senderId] = [];
                 chats[senderId].push({ 
                     sender: 'them', 
@@ -444,6 +444,7 @@
                     renderChatMessages();
                 }
 
+                // Forzar la actualización visual del radar para que comience a titilar
                 loadNearby();
             });
         }
