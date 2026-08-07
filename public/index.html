@@ -118,10 +118,10 @@
                 </div>
                 
                 <div class="flex items-center space-x-2">
-                    <!-- Botón optimizado para abrir la cámara directo en celulares -->
-                    <button type="button" onclick="document.getElementById('ephemeral-photo-input').click()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 p-2 rounded-lg text-xs" title="Tomar foto de una vista">
+                    <!-- FIX 1: Etiqueta LABEL nativa para que celulares IOS/Android abran la cámara sin bloqueos de seguridad -->
+                    <label for="ephemeral-photo-input" class="bg-slate-800 hover:bg-slate-700 text-slate-300 p-2 rounded-lg text-xs cursor-pointer flex items-center justify-center m-0" title="Tomar foto de una vista">
                         📷
-                    </button>
+                    </label>
                     <input type="file" id="ephemeral-photo-input" accept="image/*" capture="environment" class="hidden">
 
                     <input type="text" id="message-content" placeholder="Escribe un mensaje..." class="flex-1 bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs focus:outline-none focus:border-blue-500">
@@ -671,7 +671,7 @@
             box.scrollTop = box.scrollHeight;
         }
 
-        // Función para ver la foto y ordenar su destrucción absoluta en la base de datos
+        // FIX 3: Respaldo para garantizar el borrado. Si no tiene ID asignado aún, se borrará obligatoriamente mediante una ruta de rescate.
         window.verFotoEfimera = async function(msgIndex) {
             const msg = chats[activeReceiverId][msgIndex];
             if (!msg || msg.viewed) return;
@@ -691,6 +691,20 @@
                     });
                 } catch (e) {
                     console.error('Error al destruir mensaje en servidor:', e);
+                }
+            } else {
+                // Respaldo de seguridad: si la foto acaba de llegar en vivo y carece de ID, la destruye enviando su código base64 al backend.
+                try {
+                    await fetch(`/api/messages/destroy-by-content`, {
+                        method: 'POST',
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}` 
+                        },
+                        body: JSON.stringify({ content: photoUrl })
+                    });
+                } catch (e) {
+                    console.error('Error al destruir por contenido:', e);
                 }
             }
 
@@ -725,7 +739,8 @@
             document.getElementById('message-content').value = '';
         });
 
-        document.getElementById('ephemeral-photo-input').addEventListener('change', (e) => {
+        // FIX 2: Comprimir la foto antes de enviarla. La función previa impedía que las fotos pesadas (>800kb) pasaran.
+        document.getElementById('ephemeral-photo-input').addEventListener('change', async (e) => {
             if (!activeReceiverId) {
                 alert('Selecciona un usuario primero.');
                 return;
@@ -733,14 +748,12 @@
             const file = e.target.files[0];
             if (!file) return;
 
-            if (file.size > 800 * 1024) {
-                alert('La foto es muy pesada. Máximo 800 KB.');
-                return;
-            }
+            // Alerta visual ligera de que está procesando (ya que la compresión toma 1-2 segundos)
+            document.getElementById('ephemeral-photo-input').closest('label').innerHTML = '⏳';
 
-            const reader = new FileReader();
-            reader.onload = function(event) {
-                const base64Image = event.target.result;
+            try {
+                // Se comprime la imagen automáticamente para que la cámara del celular no sufra bloqueos por peso.
+                const base64Image = await compressImage(file);
 
                 socket.emit('private_message', { 
                     receiverId: parseInt(activeReceiverId), 
@@ -758,8 +771,14 @@
                 });
 
                 renderChatMessages();
-            };
-            reader.readAsDataURL(file);
+            } catch (err) {
+                console.error('Error al procesar foto:', err);
+                alert('Ocurrió un error al procesar la cámara.');
+            } finally {
+                // Restaura el icono original y limpia el valor para dejar sacar otra foto
+                document.getElementById('ephemeral-photo-input').closest('label').innerHTML = '📷';
+                e.target.value = ''; 
+            }
         });
 
         const supportInput = document.getElementById('support-input');
