@@ -17,7 +17,7 @@ const radarRoutes = require('./routes/radarRoutes');
 const userRoutes = require('./routes/userRoutes');
 const chatRoutes = require('./routes/chatRoutes');
 const configureSockets = require('./sockets/chatSocket');
-const verificationRoutes = require('./routes/verificationRoutes'); // NUEVO
+const verificationRoutes = require('./routes/verificationRoutes');
 
 const app = express();
 const server = http.createServer(app);
@@ -59,7 +59,6 @@ app.use('/api/users', userRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/verification', verificationRoutes);
 app.use('/api/security', securityRoutes);
-app.use('/api/verification', securityRoutes);
 
 // Endpoint para recuperar el historial de chat entre el usuario actual y un destinatario
 app.get('/api/messages/:recipientId', authenticateToken, async (req, res) => {
@@ -68,7 +67,7 @@ app.get('/api/messages/:recipientId', authenticateToken, async (req, res) => {
         const recipientId = req.params.recipientId;
 
         const query = `
-            SELECT sender_id, receiver_id, content, created_at 
+            SELECT id, sender_id, receiver_id, content, type, created_at 
             FROM messages 
             WHERE (sender_id = $1 AND receiver_id = $2) 
                OR (sender_id = $2 AND receiver_id = $1)
@@ -84,13 +83,12 @@ app.get('/api/messages/:recipientId', authenticateToken, async (req, res) => {
     }
 });
 
-// Endpoint para destruir/eliminar un mensaje efímero de la base de datos permanentemente
+// NUEVA RUTA: Destruir/eliminar de forma permanente el mensaje efímero de la base de datos al ser visto
 app.delete('/api/messages/:id/destroy', authenticateToken, async (req, res) => {
     try {
         const messageId = req.params.id;
         const userId = req.user.id;
 
-        // Ejecutar el borrado asegurando que pertenezca al usuario que lo recibió o envió
         const query = `
             DELETE FROM messages 
             WHERE id = $1 AND (receiver_id = $2 OR sender_id = $2)
@@ -120,10 +118,8 @@ app.get('/api/status', (req, res) => {
 // 3. Configurar canal de WebSockets
 configureSockets(io);
 
-
 // --- MÓDULO DE SOPORTE Y ADMINISTRACIÓN ---
 
-// 1. Enviar mensaje de soporte/sugerencia (Máximo 300 caracteres)
 app.post('/api/support', authenticateToken, async (req, res) => {
     try {
         const { message } = req.body;
@@ -131,13 +127,11 @@ app.post('/api/support', authenticateToken, async (req, res) => {
             return res.status(400).json({ success: false, error: 'El mensaje es obligatorio y no puede superar los 300 caracteres.' });
         }
 
-        // Obtener datos del usuario actual
         const userQuery = await db.query('SELECT username, email FROM users WHERE id = $1', [req.user.id]);
         if (userQuery.rows.length === 0) return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
 
         const { username, email } = userQuery.rows[0];
 
-        // Guardar en base de datos
         await db.query(
             'INSERT INTO support_messages (user_id, name, email, message) VALUES ($1, $2, $3, $4)',
             [req.user.id, username, email, message]
@@ -150,7 +144,6 @@ app.post('/api/support', authenticateToken, async (req, res) => {
     }
 });
 
-// Middleware para verificar si el usuario es Administrador
 async function verifyAdmin(req, res, next) {
     try {
         const userQuery = await db.query('SELECT role FROM users WHERE id = $1', [req.user.id]);
@@ -163,14 +156,12 @@ async function verifyAdmin(req, res, next) {
     }
 }
 
-// 2. Métricas para el Panel de Control Admin
 app.get('/api/admin/metrics', authenticateToken, verifyAdmin, async (req, res) => {
     try {
         const totalUsers = await db.query('SELECT COUNT(*) FROM users');
         const premiumUsers = await db.query('SELECT COUNT(*) FROM users WHERE is_premium = TRUE');
         const freeUsers = await db.query('SELECT COUNT(*) FROM users WHERE is_premium = FALSE OR is_premium IS NULL');
         
-        // Consideramos "conectados" a los que interactuaron en los últimos 15 minutos
         const connectedUsers = await db.query('SELECT COUNT(*) FROM users WHERE last_seen > NOW() - INTERVAL \'15 minutes\'');
 
         res.json({
@@ -189,7 +180,6 @@ app.get('/api/admin/metrics', authenticateToken, verifyAdmin, async (req, res) =
     }
 });
 
-// 3. Exportar mensajes a Word (.doc descargable) filtrado por rango de fechas
 app.get('/api/admin/export-messages', authenticateToken, verifyAdmin, async (req, res) => {
     try {
         const { startDate, endDate } = req.query;
@@ -210,7 +200,6 @@ app.get('/api/admin/export-messages', authenticateToken, verifyAdmin, async (req
 
         const result = await db.query(query, params);
 
-        // Generar estructura HTML compatible con Microsoft Word (.doc)
         let htmlContent = `
             <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
             <head><meta charset='utf-8'><title>Historial de Mensajes - Sin Vueltas</title></head>
@@ -238,7 +227,6 @@ app.get('/api/admin/export-messages', authenticateToken, verifyAdmin, async (req
 
         htmlContent += `</table></body></html>`;
 
-        // Cabeceras para que el navegador descargue un archivo Word limpio
         res.setHeader('Content-Type', 'application/vnd.ms-word');
         res.setHeader('Content-Disposition', `attachment; filename=reporte_mensajes_${Date.now()}.doc`);
         res.send(htmlContent);
@@ -249,7 +237,6 @@ app.get('/api/admin/export-messages', authenticateToken, verifyAdmin, async (req
     }
 });
 
-// 4. Tarea en segundo plano: Limpieza automática de mensajes con más de 6 meses
 const runMessageCleanup = async () => {
     try {
         const query = `DELETE FROM messages WHERE created_at < NOW() - INTERVAL '6 months';`;
@@ -268,7 +255,7 @@ setInterval(runMessageCleanup, 24 * 60 * 60 * 1000);
 // 5. Servir archivos estáticos del Frontend (PWA)
 app.use(express.static(path.join(__dirname, '../public')));
 
-// 6. SPA Fallback (Siempre al final para no interferir con las rutas API)
+// 6. SPA Fallback
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, '../public', 'index.html'));
 });
