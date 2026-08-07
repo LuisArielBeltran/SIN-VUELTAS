@@ -11,12 +11,10 @@
     <style>
         .scrollbar-none::-webkit-scrollbar { display: none; }
         .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
-        /* Estilo para avatares desconectados (Blanco y Negro / Grayscale) */
         .grayscale-avatar {
             filter: grayscale(100%);
             opacity: 0.6;
         }
-        /* Brillo dorado para avatares premium */
         .premium-border {
             border-color: #fbbf24 !important; 
             box-shadow: 0 0 8px rgba(251, 191, 36, 0.5); 
@@ -57,17 +55,14 @@
                     <input type="password" id="password" required class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs focus:outline-none focus:border-blue-600">
                 </div>
     
-                <!-- Botón principal de tu formulario -->
                 <button type="submit" id="submit-btn" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold p-2.5 rounded-lg text-xs transition-colors">Entrar</button>
 
-                <!-- Divisor visual -->
                 <div class="relative flex py-2 items-center">
                     <div class="flex-grow border-t border-slate-800"></div>
                     <span class="flex-shrink mx-4 text-slate-500 text-[10px] uppercase tracking-wider">o</span>
                     <div class="flex-grow border-t border-slate-800"></div>
                 </div>
 
-                <!-- Botón de Google que configuramos antes -->
                 <div id="buttonDiv" class="w-full flex justify-center"></div>
             </form>
 
@@ -123,10 +118,12 @@
                 </div>
                 
                 <div class="flex items-center space-x-2">
-                    <button type="button" onclick="document.getElementById('ephemeral-photo-input').click()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 p-2 rounded-lg text-xs" title="Enviar foto de una vista">
-    📷
+                    <!-- Botón corregido para forzar la apertura de la cámara en celulares -->
+                    <button type="button" onclick="document.getElementById('ephemeral-photo-input').click()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 p-2 rounded-lg text-xs" title="Tomar foto con cámara">
+                        📷
                     </button>
-                    <input type="file" id="ephemeral-photo-input" accept="image/*" class="hidden">
+                    <!-- capture="environment" abre la cámara directamente sin bloquearse -->
+                    <input type="file" id="ephemeral-photo-input" accept="image/*" capture="environment" class="hidden">
 
                     <input type="text" id="message-content" placeholder="Escribe un mensaje..." class="flex-1 bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs focus:outline-none focus:border-blue-500">
                     <button id="send-msg-btn" class="bg-blue-600 hover:bg-blue-500 px-3 py-2 rounded-lg text-xs font-semibold text-white">Enviar</button>
@@ -149,7 +146,7 @@
         Sin Vueltas &copy; 2026 - Seguro y Descentralizado
     </footer>
 
-    <!-- MODAL DE VERIFICACIÓN ACTUALIZADO (Bloqueo de galería) -->
+    <!-- MODAL DE VERIFICACIÓN -->
     <div id="verify-modal" class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
         <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl max-w-sm w-full space-y-3 shadow-2xl">
             <div class="flex justify-between items-center">
@@ -296,7 +293,6 @@
             modal.classList.toggle('hidden');
         }
 
-        // COMPRESIÓN EXTREMA ACTUALIZADA (Máximo 600px y calidad JPEG 60%)
         function compressImage(file) {
             return new Promise((resolve) => {
                 const reader = new FileReader();
@@ -326,7 +322,6 @@
                         const ctx = canvas.getContext('2d');
                         ctx.drawImage(img, 0, 0, width, height);
                         
-                        // Conversión a JPEG con 60% de calidad para lograr el menor peso posible
                         resolve(canvas.toDataURL('image/jpeg', 0.60));
                     };
                     img.src = event.target.result;
@@ -432,10 +427,12 @@
     
                 if (!chats[senderId]) chats[senderId] = [];
                 chats[senderId].push({ 
+                    id: msg.id,
                     sender: 'them', 
                     content: msg.content, 
                     type: msg.type || 'text', 
-                    created_at: msg.created_at || new Date().toISOString() 
+                    created_at: msg.created_at || new Date().toISOString(),
+                    viewed: msg.viewed || false
                 });
 
                 if (activeReceiverId !== senderId) {
@@ -444,7 +441,6 @@
                     renderChatMessages();
                 }
 
-                // Forzar la actualización visual del radar para que comience a titilar
                 loadNearby();
             });
         }
@@ -639,13 +635,13 @@
         
                 let contentHtml = '';
         
-                // Validar estrictamente si es foto efímera o si ya fue vista
                 if (msg.type === 'ephemeral_photo') {
-                    if (msg.viewed || !msg.content || msg.content === '') {
+                    // Si ya fue visto o el contenido se borró, mostrar burbuja destruida permanentemente
+                    if (msg.viewed || !msg.content || msg.content === '' || msg.content === '[Destruido]') {
                         contentHtml = `
                             <div class="flex items-center space-x-1.5 text-slate-500 italic bg-black/20 p-1.5 rounded-lg border border-slate-800/50">
                                 <span class="text-xs">👁️</span> 
-                                <span class="text-[10px]">Foto vista (Destruida)</span>
+                                <span class="text-[10px]">Foto vista (Eliminada de la base de datos)</span>
                             </div>
                         `;
                     } else if (isMe) {
@@ -655,7 +651,7 @@
                             <div class="cursor-pointer bg-slate-950 p-2 rounded border border-blue-600 text-center shadow-lg" onclick="verFotoEfimera(${index})">
                                 <span class="text-[10px] text-blue-400 font-bold flex items-center justify-center space-x-1">
                                     <span class="text-sm">👁️</span>
-                                    <span>Toca para ver foto (1 sola vez)</span>
+                                    <span>Toca para ver foto (Se autodestruirá)</span>
                                 </span>
                             </div>
                         `;
@@ -676,29 +672,40 @@
             box.scrollTop = box.scrollHeight;
         }
 
-        // Función para ver y destruir la foto de inmediato
-        window.verFotoEfimera = function(msgIndex) {
+        // Función para ver la foto y ordenar su destrucción absoluta en la base de datos
+        window.verFotoEfimera = async function(msgIndex) {
             const msg = chats[activeReceiverId][msgIndex];
             if (!msg || msg.viewed) return;
 
             const photoUrl = msg.content;
-    
-            // Marcar como visto localmente y vaciar el contenido para que jamás vuelva a mostrarse
+            
+            // Marcar localmente como visto de inmediato
             msg.viewed = true;
-            msg.content = ''; 
+            msg.content = '[Destruido]';
+
+            // Llamar al backend para eliminar el archivo de la base de datos del servidor
+            if (msg.id) {
+                try {
+                    await fetch(`/api/messages/${msg.id}/destroy`, {
+                        method: 'DELETE',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                } catch (e) {
+                    console.error('Error al destruir mensaje en servidor:', e);
+                }
+            }
 
             const modal = document.createElement('div');
             modal.className = 'fixed inset-0 bg-black/90 z-50 flex flex-col items-center justify-center p-4';
             modal.innerHTML = `
                 <div class="relative max-w-sm w-full bg-slate-900 p-2 rounded-xl border border-slate-700 text-center space-y-3 shadow-2xl">
-                    <p class="text-xs text-amber-400 font-semibold">⚠️ Foto de visualización única (Se destruirá al cerrar)</p>
+                    <p class="text-xs text-amber-400 font-semibold">⚠️ Visualización única (Se eliminará al cerrar)</p>
                     <img src="${photoUrl}" class="w-full rounded-lg object-contain max-h-[70vh]">
-                    <button onclick="this.closest('.fixed').remove();" class="w-full bg-red-600 hover:bg-red-500 text-white text-xs font-bold py-2 rounded-lg transition-colors">Cerrar y Destruir para siempre</button>
+                    <button onclick="this.closest('.fixed').remove();" class="w-full bg-red-600 hover:bg-red-500 text-white text-xs font-bold py-2 rounded-lg transition-colors">Cerrar y Borrar Definitivamente</button>
                 </div>
             `;
             document.body.appendChild(modal);
-    
-            // Refrescar el chat de inmediato para que la burbuja cambie a "Foto vista"
+            
             renderChatMessages();
         };
 
@@ -747,7 +754,8 @@
                     sender: 'me', 
                     content: base64Image, 
                     type: 'ephemeral_photo', 
-                    created_at: new Date().toISOString() 
+                    created_at: new Date().toISOString(),
+                    viewed: false
                 });
 
                 renderChatMessages();
@@ -795,55 +803,44 @@
     </script>
 
     <script>
-  // Función que se ejecuta cuando Google carga correctamente
-  window.onload = function () {
-    google.accounts.id.initialize({
-      client_id: "2857045221-rni562jmlqc0kv0gn51slp3i7a351vg6.apps.googleusercontent.com", 
-      callback: handleCredentialResponse
-    });
+      window.onload = function () {
+        google.accounts.id.initialize({
+          client_id: "2857045221-rni562jmlqc0kv0gn51slp3i7a351vg6.apps.googleusercontent.com", 
+          callback: handleCredentialResponse
+        });
 
-    google.accounts.id.renderButton(
-      document.getElementById("buttonDiv"),
-      { theme: "outline", size: "large", width: "100%", text: "continue_with", shape: "pill" } // Personalización visual
-    );
-  };
+        google.accounts.id.renderButton(
+          document.getElementById("buttonDiv"),
+          { theme: "outline", size: "large", width: "100%", text: "continue_with", shape: "pill" }
+        );
+      };
 
-  // Función que procesa el token que devuelve Google cuando el usuario se loguea
-  async function handleCredentialResponse(response) {
-    const credential = response.credential; // Este es el JWT que emite Google
+      async function handleCredentialResponse(response) {
+        const credential = response.credential; 
 
-    try {
-      const res = await fetch('/api/auth/google', { // Asegúrate de que coincida con tu ruta en el backend
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ credential })
-      });
+        try {
+          const res = await fetch('/api/auth/google', { 
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ credential })
+          });
 
-      const data = await res.json();
+          const data = await res.json();
 
-      if (data.success) {
-        // Guardamos el token JWT de tu app en localStorage
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
-
-        // Redirigir al usuario al Radar principal o dashboard
-        window.location.href = '/radar.html'; // O la vista principal de tu app
-      } else {
-        alert('Error al iniciar sesión con Google: ' + data.error);
+          if (data.success) {
+            localStorage.setItem('token', data.token);
+            localStorage.setItem('user', JSON.stringify(data.user));
+            window.location.href = '/radar.html'; 
+          } else {
+            alert('Error al iniciar sesión con Google: ' + data.error);
+          }
+        } catch (error) {
+            console.error('Error de red al conectar con el servidor:', error);
+            alert('No se pudo conectar con el servidor de autenticación.');
+        }
       }
-    } catch (error) {
-        console.error('Error de red al conectar con el servidor:', error);
-        alert('No se pudo conectar con el servidor de autenticación.');
-    }
-  }
-</script>
-
-
-
-
-
-    
+    </script>
 </body>
 </html>
