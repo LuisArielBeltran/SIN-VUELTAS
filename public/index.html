@@ -638,8 +638,9 @@
                 const bg = isMe ? 'bg-blue-950 border-blue-900 text-blue-200 ml-6' : 'bg-slate-900 border-slate-800 text-slate-200 mr-6';
                 
                 let contentHtml = '';
-                
-                if (msg.type === 'ephemeral_photo') {
+
+                // Verificamos si es una foto efímera por su tipo o si el contenido es una cadena base64 de imagen
+                if (msg.type === 'ephemeral_photo' || (msg.content && msg.content.startsWith('data:image'))) {
                     if (msg.viewed) {
                         contentHtml = `
                             <div class="flex items-center space-x-1.5 text-slate-500 italic bg-black/20 p-1.5 rounded-lg border border-slate-800/50">
