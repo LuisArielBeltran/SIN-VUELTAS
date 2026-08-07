@@ -677,12 +677,12 @@
             if (!msg || msg.viewed) return;
 
             const photoUrl = msg.content;
-            
+    
             // Marcar localmente como visto de inmediato
             msg.viewed = true;
             msg.content = '[Destruido]';
 
-            // Llamar al backend para eliminar el archivo de la base de datos del servidor
+            // Enviar la orden al servidor para actualizar la base de datos
             if (msg.id) {
                 try {
                     await fetch(`/api/messages/destroy`, {
@@ -694,24 +694,11 @@
                         body: JSON.stringify({ messageId: msg.id })
                     });
                 } catch (e) {
-                    console.error('Error al destruir mensaje en servidor:', e);
-                }
-            } else {
-                // Respaldo de seguridad: si la foto acaba de llegar en vivo y carece de ID
-                try {
-                    await fetch(`/api/messages/destroy-by-content`, {
-                        method: 'POST',
-                        headers: { 
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${token}` 
-                        },
-                        body: JSON.stringify({ content: photoUrl })
-                    });
-                } catch (e) {
-                    console.error('Error al destruir por contenido:', e);
+                    console.error('Error al actualizar estado en servidor:', e);
                 }
             }
 
+            // Mostrar modal con la imagen
             const modal = document.createElement('div');
             modal.className = 'fixed inset-0 bg-black/90 z-50 flex flex-col items-center justify-center p-4';
             modal.innerHTML = `
@@ -722,7 +709,7 @@
                 </div>
             `;
             document.body.appendChild(modal);
-            
+    
             renderChatMessages();
         };
 
