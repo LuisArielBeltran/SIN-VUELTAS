@@ -32,7 +32,10 @@ const PORT = process.env.PORT || 3000;
 
 // Middlewares globales
 app.use(cors());
-app.use(express.json());
+
+// FIX CRÍTICO: Ampliamos el límite de Express a 50mb. 
+// Las fotos Base64 de la cámara pesan bastante y el servidor las rechazaba por defecto.
+app.use(express.json({ limit: '50mb' }));
 
 // Middleware de autenticación JWT
 function authenticateToken(req, res, next) {
@@ -83,17 +86,20 @@ app.get('/api/messages/:recipientId', authenticateToken, async (req, res) => {
     }
 });
 
-// NUEVA RUTA: Destruir/eliminar de forma permanente el mensaje efímero de la base de datos al ser visto
-app.delete('/api/messages/:id/destroy', authenticateToken, async (req, res) => {
+// FIX CRÍTICO: Nueva ruta POST para destruir el mensaje (POST evita bloqueos de red en celulares en comparación con DELETE)
+app.post('/api/messages/destroy', authenticateToken, async (req, res) => {
     try {
-        const messageId = req.params.id;
-        const userId = req.user.id;
+        const { messageId } = req.body;
+        
+        if (!messageId) {
+            return res.status(400).json({ success: false, error: 'ID de mensaje requerido' });
+        }
 
         const query = `
             DELETE FROM messages 
             WHERE id = $1 AND (receiver_id = $2 OR sender_id = $2)
         `;
-        const result = await db.query(query, [messageId, userId]);
+        const result = await db.query(query, [messageId, req.user.id]);
 
         if (result.rowCount === 0) {
             return res.status(404).json({ success: false, error: 'Mensaje no encontrado o sin permisos' });
@@ -102,6 +108,28 @@ app.delete('/api/messages/:id/destroy', authenticateToken, async (req, res) => {
         res.json({ success: true, message: 'Mensaje destruido permanentemente de la base de datos.' });
     } catch (err) {
         console.error('❌ Error al destruir el mensaje efímero:', err);
+        res.status(500).json({ success: false, error: 'Error al eliminar el mensaje.' });
+    }
+});
+
+// FIX CRÍTICO 2: Endpoint de "rescate" por si el mensaje llega en vivo por webhooks y aún no tiene ID en el Frontend
+app.post('/api/messages/destroy-by-content', authenticateToken, async (req, res) => {
+    try {
+        const { content } = req.body;
+
+        if (!content) {
+            return res.status(400).json({ success: false, error: 'Contenido requerido' });
+        }
+
+        const query = `
+            DELETE FROM messages 
+            WHERE content = $1 AND (receiver_id = $2 OR sender_id = $2)
+        `;
+        const result = await db.query(query, [content, req.user.id]);
+
+        res.json({ success: true, message: 'Destruido por contenido exacto.' });
+    } catch (err) {
+        console.error('❌ Error al destruir el mensaje efímero por contenido:', err);
         res.status(500).json({ success: false, error: 'Error al eliminar el mensaje.' });
     }
 });
