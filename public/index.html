@@ -123,9 +123,9 @@
                 </div>
                 
                 <div class="flex items-center space-x-2">
-                    <label for="ephemeral-photo-input" class="cursor-pointer bg-slate-800 hover:bg-slate-700 text-slate-300 p-2 rounded-lg text-xs" title="Enviar foto de una vista">
-                        📷
-                    </label>
+                    <button type="button" onclick="document.getElementById('ephemeral-photo-input').click()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 p-2 rounded-lg text-xs" title="Enviar foto de una vista">
+    📷
+                    </button>
                     <input type="file" id="ephemeral-photo-input" accept="image/*" class="hidden">
 
                     <input type="text" id="message-content" placeholder="Escribe un mensaje..." class="flex-1 bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs focus:outline-none focus:border-blue-500">
