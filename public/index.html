@@ -560,7 +560,7 @@
             unreadMessages[userId] = false;
 
             document.getElementById('active-chat-label').textContent = `Hablando con: ${username}`;
-            
+    
             try {
                 const res = await fetch(`/api/messages/${userId}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
@@ -576,7 +576,7 @@
                             content: msg.content,
                             type: msg.type || 'text',
                             created_at: msg.created_at,
-                            viewed: msg.viewed || false 
+                            viewed: msg.viewed || false // Lee directamente el booleano 'viewed' de tu tabla
                         };
                     });
                 } else {
