@@ -84,6 +84,30 @@ app.get('/api/messages/:recipientId', authenticateToken, async (req, res) => {
     }
 });
 
+// Endpoint para destruir/eliminar un mensaje efímero de la base de datos permanentemente
+app.delete('/api/messages/:id/destroy', authenticateToken, async (req, res) => {
+    try {
+        const messageId = req.params.id;
+        const userId = req.user.id;
+
+        // Ejecutar el borrado asegurando que pertenezca al usuario que lo recibió o envió
+        const query = `
+            DELETE FROM messages 
+            WHERE id = $1 AND (receiver_id = $2 OR sender_id = $2)
+        `;
+        const result = await db.query(query, [messageId, userId]);
+
+        if (result.rowCount === 0) {
+            return res.status(404).json({ success: false, error: 'Mensaje no encontrado o sin permisos' });
+        }
+
+        res.json({ success: true, message: 'Mensaje destruido permanentemente de la base de datos.' });
+    } catch (err) {
+        console.error('❌ Error al destruir el mensaje efímero:', err);
+        res.status(500).json({ success: false, error: 'Error al eliminar el mensaje.' });
+    }
+});
+
 // 2. Ruta de estado de la API
 app.get('/api/status', (req, res) => {
     res.json({ 
