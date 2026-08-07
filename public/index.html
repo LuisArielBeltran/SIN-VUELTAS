@@ -118,11 +118,10 @@
                 </div>
                 
                 <div class="flex items-center space-x-2">
-                    <!-- Botón corregido para forzar la apertura de la cámara en celulares -->
-                    <button type="button" onclick="document.getElementById('ephemeral-photo-input').click()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 p-2 rounded-lg text-xs" title="Tomar foto con cámara">
+                    <!-- Botón optimizado para abrir la cámara directo en celulares -->
+                    <button type="button" onclick="document.getElementById('ephemeral-photo-input').click()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 p-2 rounded-lg text-xs" title="Tomar foto de una vista">
                         📷
                     </button>
-                    <!-- capture="environment" abre la cámara directamente sin bloquearse -->
                     <input type="file" id="ephemeral-photo-input" accept="image/*" capture="environment" class="hidden">
 
                     <input type="text" id="message-content" placeholder="Escribe un mensaje..." class="flex-1 bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs focus:outline-none focus:border-blue-500">
