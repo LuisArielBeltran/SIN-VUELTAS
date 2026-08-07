@@ -113,24 +113,27 @@ app.post('/api/messages/destroy', authenticateToken, async (req, res) => {
 });
 
 // FIX CRÍTICO 2: Endpoint de "rescate" por si el mensaje llega en vivo por webhooks y aún no tiene ID en el Frontend
-app.post('/api/messages/destroy-by-content', authenticateToken, async (req, res) => {
+// Ruta robusta para marcar como visto y destruir el contenido efímero en la BD
+app.post('/api/messages/destroy', authenticateToken, async (req, res) => {
     try {
-        const { content } = req.body;
-
-        if (!content) {
-            return res.status(400).json({ success: false, error: 'Contenido requerido' });
+        const { messageId } = req.body;
+        
+        if (!messageId) {
+            return res.status(400).json({ success: false, error: 'ID de mensaje requerido' });
         }
 
+        // Actualizamos la fila en lugar de borrarla para evitar errores de ID o permisos
         const query = `
-            DELETE FROM messages 
-            WHERE content = $1 AND (receiver_id = $2 OR sender_id = $2)
+            UPDATE messages 
+            SET viewed = TRUE, content = '[Destruido]' 
+            WHERE id = $1 AND (receiver_id = $2 OR sender_id = $2)
         `;
-        const result = await db.query(query, [content, req.user.id]);
+        await db.query(query, [messageId, req.user.id]);
 
-        res.json({ success: true, message: 'Destruido por contenido exacto.' });
+        res.json({ success: true, message: 'Mensaje marcado como visto y destruido en base de datos.' });
     } catch (err) {
-        console.error('❌ Error al destruir el mensaje efímero por contenido:', err);
-        res.status(500).json({ success: false, error: 'Error al eliminar el mensaje.' });
+        console.error('❌ Error al actualizar el mensaje efímero:', err);
+        res.status(500).json({ success: false, error: 'Error al actualizar el mensaje.' });
     }
 });
 
