@@ -64,13 +64,14 @@ app.use('/api/verification', verificationRoutes);
 app.use('/api/security', securityRoutes);
 
 // Endpoint para recuperar el historial de chat entre el usuario actual y un destinatario
+// 1. Obtener historial incluyendo la columna 'viewed' y filtrando los destruidos si deseas
 app.get('/api/messages/:recipientId', authenticateToken, async (req, res) => {
     try {
         const myId = req.user.id;
         const recipientId = req.params.recipientId;
 
         const query = `
-            SELECT id, sender_id, receiver_id, content, type, created_at 
+            SELECT id, sender_id, receiver_id, content, type, created_at, viewed 
             FROM messages 
             WHERE (sender_id = $1 AND receiver_id = $2) 
                OR (sender_id = $2 AND receiver_id = $1)
@@ -86,7 +87,7 @@ app.get('/api/messages/:recipientId', authenticateToken, async (req, res) => {
     }
 });
 
-// FIX CRÍTICO: Nueva ruta POST para destruir el mensaje (POST evita bloqueos de red en celulares en comparación con DELETE)
+// 2. Marcar como visto y destruir el contenido usando la columna 'viewed'
 app.post('/api/messages/destroy', authenticateToken, async (req, res) => {
     try {
         const { messageId } = req.body;
@@ -95,20 +96,18 @@ app.post('/api/messages/destroy', authenticateToken, async (req, res) => {
             return res.status(400).json({ success: false, error: 'ID de mensaje requerido' });
         }
 
+        // Forzamos la conversión del ID a entero por seguridad con parseInt()
         const query = `
-            DELETE FROM messages 
+            UPDATE messages 
+            SET viewed = TRUE, content = '[Destruido]' 
             WHERE id = $1 AND (receiver_id = $2 OR sender_id = $2)
         `;
-        const result = await db.query(query, [messageId, req.user.id]);
+        await db.query(query, [parseInt(messageId), req.user.id]);
 
-        if (result.rowCount === 0) {
-            return res.status(404).json({ success: false, error: 'Mensaje no encontrado o sin permisos' });
-        }
-
-        res.json({ success: true, message: 'Mensaje destruido permanentemente de la base de datos.' });
+        res.json({ success: true, message: 'Mensaje marcado como visto y destruido en base de datos.' });
     } catch (err) {
-        console.error('❌ Error al destruir el mensaje efímero:', err);
-        res.status(500).json({ success: false, error: 'Error al eliminar el mensaje.' });
+        console.error('❌ Error al actualizar el mensaje efímero:', err);
+        res.status(500).json({ success: false, error: 'Error al actualizar el mensaje.' });
     }
 });
 
