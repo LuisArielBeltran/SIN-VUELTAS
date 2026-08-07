@@ -111,28 +111,33 @@ app.post('/api/messages/destroy', authenticateToken, async (req, res) => {
     }
 });
 
-// FIX CRÍTICO 2: Endpoint de "rescate" por si el mensaje llega en vivo por webhooks y aún no tiene ID en el Frontend
-// Ruta robusta para marcar como visto y destruir el contenido efímero en la BD
+// Ruta unificada y robusta para destruir por ID o por Contenido (Rescate)
 app.post('/api/messages/destroy', authenticateToken, async (req, res) => {
     try {
-        const { messageId } = req.body;
-        
-        if (!messageId) {
-            return res.status(400).json({ success: false, error: 'ID de mensaje requerido' });
+        const { messageId, content } = req.body;
+        console.log("📥 Solicitud de destrucción recibida en servidor:", { messageId, userId: req.user.id });
+
+        let result;
+        if (messageId) {
+            result = await db.query(`
+                UPDATE messages 
+                SET viewed = TRUE, content = '[Destruido]' 
+                WHERE id = $1 AND (receiver_id = $2 OR sender_id = $2)
+            `, [parseInt(messageId), req.user.id]);
+        } else if (content) {
+            result = await db.query(`
+                UPDATE messages 
+                SET viewed = TRUE, content = '[Destruido]' 
+                WHERE content = $1 AND (receiver_id = $2 OR sender_id = $2)
+            `, [content, req.user.id]);
+        } else {
+            return res.status(400).json({ success: false, error: 'Se requiere ID o contenido' });
         }
 
-        // Actualizamos la fila en lugar de borrarla para evitar errores de ID o permisos
-        const query = `
-            UPDATE messages 
-            SET viewed = TRUE, content = '[Destruido]' 
-            WHERE id = $1 AND (receiver_id = $2 OR sender_id = $2)
-        `;
-        await db.query(query, [messageId, req.user.id]);
-
-        res.json({ success: true, message: 'Mensaje marcado como visto y destruido en base de datos.' });
+        res.json({ success: true, message: 'Mensaje actualizado a visto y destruido en BD.' });
     } catch (err) {
-        console.error('❌ Error al actualizar el mensaje efímero:', err);
-        res.status(500).json({ success: false, error: 'Error al actualizar el mensaje.' });
+        console.error('❌ Error crítico al destruir el mensaje efímero:', err);
+        res.status(500).json({ success: false, error: err.message });
     }
 });
 
